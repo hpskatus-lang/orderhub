@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="et">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="theme-color" content="#0f0f0f">
+  <title>Häältellimus</title>
+  <link rel="manifest" href="#" />
+  <style>
+    :root {
+      --bg: #0f0f0f; --bg2: #1a1a1a; --bg3: #242424;
+      --border: #2e2e2e; --border2: #3a3a3a;
+      --text: #e8e8e8; --text2: #999; --text3: #555;
+      --green: #1D9E75; --green-dim: #0d3d2d;
+      --amber: #EF9F27; --amber-dim: #3d2800;
+      --red: #E24B4A; --red-dim: #3d0f0f;
+      --blue: #378ADD; --blue-dim: #0c2240;
+      --mono: 'IBM Plex Mono', monospace;
+      --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    html, body { height: 100%; background: var(--bg); color: var(--text); font-family: var(--sans); }
+    body { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px 16px; min-height: 100vh; }
+
+    /* Põhikonteiner */
+    .wrap { width: 100%; max-width: 340px; }
+
+    /* Päis */
+    .header { display: flex; align-items: center; gap: 8px; margin-bottom: 32px; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); animation: dpulse 2s infinite; }
+    @keyframes dpulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+    .logo { font-family: var(--mono); font-size: 14px; font-weight: 500; color: var(--text); }
+    .ver-badge { font-size: 10px; font-family: var(--mono); color: var(--text3); padding: 2px 7px; border: 1px solid var(--border2); border-radius: 4px; margin-left: auto; }
+
+    /* Mikrofoni nupp */
+    .mic-section { text-align: center; margin-bottom: 28px; }
+    .mic-ring { width: 120px; height: 120px; border-radius: 50%; margin: 0 auto 16px; display: flex; align-items: center; justify-content: center; position: relative; cursor: pointer; transition: all .2s; border: none; background: none; outline: none; }
+    .mic-ring::before { content: ''; position: absolute; inset: 0; border-radius: 50%; border: 2px solid var(--green); transition: all .2s; }
+    .mic-ring.rec::before { border-color: var(--red); animation: ringpulse 1s infinite; }
+    .mic-ring.proc::before { border-color: var(--amber); }
+    .mic-ring.done::before { border-color: var(--green); }
+    @keyframes ringpulse {
+      0% { box-shadow: 0 0 0 0 rgba(226,75,74,.4); }
+      70% { box-shadow: 0 0 0 20px rgba(226,75,74,0); }
+      100% { box-shadow: 0 0 0 0 rgba(226,75,74,0); }
+    }
+    .mic-inner { width: 88px; height: 88px; border-radius: 50%; background: var(--bg2); border: 1px solid var(--border2); display: flex; align-items: center; justify-content: center; font-size: 38px; transition: all .15s; }
+    .mic-ring.rec .mic-inner { background: var(--red-dim); border-color: var(--red); }
+    .mic-ring.proc .mic-inner { background: var(--amber-dim); border-color: var(--amber); }
+    .mic-ring.done .mic-inner { background: var(--green-dim); border-color: var(--green); }
+    .status { font-size: 14px; color: var(--text2); min-height: 22px; }
+    .status.rec { color: var(--red); }
+    .status.proc { color: var(--amber); }
+    .status.done { color: var(--green); }
+
+    /* Transkriptsioon */
+    .transcript { background: var(--bg2); border: 1px solid var(--border2); border-radius: 10px; padding: 12px 14px; margin-bottom: 14px; font-size: 13px; color: var(--text2); font-style: italic; line-height: 1.6; display: none; }
+
+    /* Tulemus */
+    .result-card { background: var(--bg2); border: 1px solid var(--border2); border-radius: 14px; padding: 16px; margin-bottom: 14px; display: none; }
+    .rc-header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+    .rc-avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--blue-dim); color: var(--blue); display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 500; flex-shrink: 0; }
+    .rc-nimi { font-size: 14px; font-weight: 500; color: var(--text); }
+    .rc-kanal { font-size: 10px; font-family: var(--mono); padding: 2px 7px; border-radius: 3px; background: var(--green-dim); color: var(--green); margin-left: auto; }
+    .rc-rida { display: flex; justify-content: space-between; align-items: center; padding: 7px 0; border-top: 1px solid var(--border); font-size: 13px; }
+    .rc-rida-nimi { color: var(--text); }
+    .rc-rida-kogus { font-family: var(--mono); font-size: 12px; color: var(--text2); }
+    .rc-kokku { display: flex; justify-content: space-between; padding: 9px 0 2px; border-top: 1px solid var(--border2); font-weight: 500; font-size: 14px; }
+    .rc-kokku span:last-child { font-family: var(--mono); color: var(--green); }
+    .rc-mv { font-size: 11px; color: var(--text3); margin-top: 8px; }
+    .rc-markus { font-size: 12px; color: var(--text2); margin-top: 6px; padding: 7px 10px; background: var(--bg3); border-radius: 6px; border-left: 2px solid var(--border2); }
+    .btn-row { display: flex; gap: 8px; margin-top: 14px; }
+    .btn-cancel { height: 42px; padding: 0 16px; background: none; border: 1px solid var(--border2); border-radius: 9px; font-size: 13px; color: var(--text3); cursor: pointer; font-family: var(--sans); transition: all .12s; }
+    .btn-cancel:hover { color: var(--text2); border-color: var(--border2); }
+    .btn-ok { flex: 1; height: 42px; background: var(--green); color: #fff; border: none; border-radius: 9px; font-size: 14px; font-weight: 500; cursor: pointer; font-family: var(--sans); transition: background .15s; }
+    .btn-ok:hover { background: #18855f; }
+    .btn-ok:disabled { opacity: .5; cursor: not-allowed; }
+
+    /* Ajalugu */
+    .history { margin-top: 20px; display: none; }
+    .history-lbl { font-size: 10px; font-family: var(--mono); color: var(--text3); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 10px; }
+    .hist-item { display: flex; justify-content: space-between; align-items: flex-start; padding: 9px 0; border-bottom: 1px solid var(--border); }
+    .hist-item:last-child { border-bottom: none; }
+    .hist-nimi { font-size: 13px; font-weight: 500; color: var(--text); margin-bottom: 2px; }
+    .hist-tooted { font-size: 11px; color: var(--text3); }
+    .hist-right { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+    .hist-badge { font-size: 9px; font-family: var(--mono); padding: 2px 6px; border-radius: 3px; background: var(--green-dim); color: var(--green); }
+    .hist-aeg { font-size: 10px; font-family: var(--mono); color: var(--text3); }
+
+    /* Hint */
+    .hint { text-align: center; font-size: 12px; color: var(--text3); line-height: 1.7; }
+    .hint strong { color: var(--text2); }
+
+    /* Veateade */
+    .warn { background: var(--amber-dim); border: 1px solid var(--amber); border-radius: 9px; padding: 12px 14px; font-size: 13px; color: var(--amber); line-height: 1.5; margin-bottom: 16px; display: none; }
+
+    /* Spinner */
+    .spinner { width: 20px; height: 20px; border: 2px solid var(--border2); border-top-color: var(--green); border-radius: 50%; animation: spin .6s linear infinite; display: inline-block; vertical-align: middle; margin-right: 6px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Toast */
+    .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(60px); background: var(--bg3); border: 1px solid var(--border2); border-radius: 8px; padding: 10px 18px; font-size: 13px; color: var(--text); transition: transform .2s; z-index: 999; white-space: nowrap; }
+    .toast.show { transform: translateX(-50%) translateY(0); }
+    .toast.ok { border-color: var(--green); color: var(--green); }
+
+    /* Jalus */
+    .footer { text-align: center; margin-top: 28px; font-family: var(--mono); font-size: 10px; color: var(--text3); }
+  </style>
+</head>
+<body>
+
+<!-- KONFIGURATSIOON — asenda oma andmetega -->
+<script>
+window.HaaleConfig = {
+  /* Ainult Supabase ühendus — kõik muud seaded laetakse Supabasest */
+  supabaseUrl: 'https://dewnjlvwasxludspbpfm.supabase.co',
+  supabaseKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRld25qbHZ3YXN4bHVkc3BicGZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgzMjIyMDMsImV4cCI6MjA5Mzg5ODIwM30.HJl5w_HqAWn1YVczBo96eobxJzDohatsVY8yqGK2QJs',
+  tarnijaId:   '8252e26f-f940-4ea9-abbf-0b68b9a19dfa',
+  versioon:    'v1.1'
+  /* claude_api_key, valuuta, firma_nimi — laetakse Supabase seaded tabelist */
+};
+</script>
+
+<div class="wrap">
+
+  <!-- Päis -->
+  <div class="header">
+    <div class="dot"></div>
+    <span class="logo">Häältellimus</span>
+    <span class="ver-badge" id="ver-badge">v1.1</span>
+  </div>
+
+  <!-- Hoiatus -->
+  <div class="warn" id="warn"></div>
+
+  <!-- Mikrofon -->
+  <div class="mic-section">
+    <button class="mic-ring" id="mic-btn" onclick="btnClick()" aria-label="Mikrofon">
+      <div class="mic-inner" id="mic-inner">🎤</div>
+    </button>
+    <div class="status" id="status-txt">Vajuta ja räägi</div>
+  </div>
+
+  <!-- Transkriptsioon -->
+  <div class="transcript" id="transcript"></div>
+
+  <!-- Tulemus -->
+  <div class="result-card" id="result-card"></div>
+
+  <!-- Hint -->
+  <div class="hint" id="hint">
+    Räägi näiteks:<br>
+    <strong>"Mari tellis 2kg rukkijahu<br>ja 1kg kaerahelbeid, arve"</strong>
+  </div>
+
+  <!-- Ajalugu -->
+  <div class="history" id="history">
+    <div class="history-lbl">Lisatud</div>
+    <div id="history-list"></div>
+  </div>
+
+  <!-- Jalus -->
+  <div class="footer" id="footer">OrderHub · Tammejuure Mahetalu</div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function() {
+  var cfg = window.HaaleConfig || {};
+  var SB_URL = cfg.supabaseUrl;
+  var SB_KEY = cfg.supabaseKey;
+  var TID    = cfg.tarnijaId;
+  var CLAUDE = cfg.claudeApiKey || '';  // uuendatakse Supabase seadetest
+  var VAL    = cfg.valuuta || '€';
+  var VER    = cfg.versioon || 'v1.1';
+
+  var phase = 'idle';
+  var recog = null;
+  var recTimer = null;
+  var curResult = null;
+  var dbTooted = [];
+  var history = [];
+
+  // ─── Init ────────────────────────────────────────────────────
+  document.getElementById('ver-badge').textContent = VER;
+
+  // Lae kõik seaded + tooted Supabasest (sama allikas mis orderhub.html)
+  (async function() {
+    try {
+      // 1. Lae seaded
+      var sr = await fetch(SB_URL + '/rest/v1/seaded?tarnija_id=eq.' + TID + '&select=voti,vaartus', {
+        headers: { 'apikey': SB_KEY, 'Authorization': 'Bearer ' + SB_KEY }
+      });
+      var seaded = await sr.json();
+      var seadedMap = {};
+      (seaded||[]).forEach(function(s){ seadedMap[s.voti] = s.vaartus||''; });
+
+      // Rakenda seaded
+      if (seadedMap.claude_api_key) CLAUDE = seadedMap.claude_api_key;
+      if (seadedMap.valuuta) VAL = seadedMap.valuuta;
+      if (seadedMap.firma_nimi) {
+        document.getElementById('footer').textContent = 'OrderHub · ' + seadedMap.firma_nimi;
+      }
+      if (seadedMap.versioon) {
+        document.getElementById('ver-badge').textContent = seadedMap.versioon;
+      }
+
+      // 2. Lae tooted
+      var tr = await fetch(SB_URL + '/rest/v1/tooted?tarnija_id=eq.' + TID + '&select=id,nimi,suurused,hind,uhik&aktiivne=eq.true&order=nimi.asc', {
+        headers: { 'apikey': SB_KEY, 'Authorization': 'Bearer ' + SB_KEY }
+      });
+      dbTooted = await tr.json();
+
+      // Näita hint koos toodetega
+      if (dbTooted && dbTooted.length > 0) {
+        var nimed = dbTooted.slice(0,3).map(function(t){return t.nimi;}).join(', ');
+        document.getElementById('hint').innerHTML =
+          'Räägi näiteks:<br><strong>"Mari tellis 2kg ' + nimed.split(',')[0].toLowerCase() + ' ja 1kg ' + (dbTooted[1]?dbTooted[1].nimi.toLowerCase():'nisujahu') + ', arve"</strong>';
+      }
+
+    } catch(e) {
+      console.warn('Seadete/toodete laadimine:', e.message);
+    }
+  })();
+
+  // ─── Supabase ─────────────────────────────────────────────────
+  async function sbPost(endpoint, body) {
+    var r = await fetch(SB_URL + '/rest/v1/' + endpoint, {
+      method: 'POST',
+      headers: {
+        'apikey': SB_KEY, 'Authorization': 'Bearer ' + SB_KEY,
+        'Content-Type': 'application/json', 'Prefer': 'return=representation'
+      },
+      body: JSON.stringify(body)
+    });
+    if (!r.ok) throw new Error(await r.text());
+    var t = await r.text();
+    return t ? JSON.parse(t) : null;
+  }
+
+  // ─── Claude API ───────────────────────────────────────────────
+  async function parsiClaudega(tekst) {
+    var toodetNimekiri = dbTooted.length > 0
+      ? dbTooted.map(function(t) {
+          return t.nimi + (t.suurused && t.suurused.length ? ' (' + t.suurused.join('/') + ')' : '') + (t.hind ? ' ' + t.hind + VAL + '/' + (t.uhik||'tk') : '');
+        }).join(', ')
+      : 'rukkijahu, nisujahu, kaerahelbed, linaseemned, kaerapuder';
+
+    var r = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': CLAUDE,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-client-side-allow-browser': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 600,
+        messages: [{
+          role: 'user',
+          content: 'Parsi eestikeelne tellimus JSON-iks.\n\nSaadaolevad tooted: ' + toodetNimekiri + '\n\nTekst: "' + tekst + '"\n\nVasta AINULT JSON, ilma kommentaarideta:\n{"klient_nimi":"nimi","tooted":[{"nimi":"toote nimi","suurus":"500g või null","kogus":1}],"makseviis":"Arve","markus":"lisainfo või null"}'
+        }]
+      })
+    });
+    if (!r.ok) throw new Error('Claude API viga: ' + r.status);
+    var data = await r.json();
+    var txt = data.content[0].text.trim().replace(/```json|```/g, '').trim();
+    return JSON.parse(txt);
+  }
+
+  // Fallback parser kui Claude API võti puudub
+  function parsiFallback(tekst) {
+    var lower = tekst.toLowerCase();
+    var tooted = [];
+    var nimekiri = dbTooted.length > 0 ? dbTooted : [
+      {id:null,nimi:'Rukkijahu',suurused:['500g','1kg','2kg'],hind:1.80,uhik:'pk'},
+      {id:null,nimi:'Nisujahu',suurused:['500g','1kg','2kg'],hind:1.60,uhik:'pk'},
+      {id:null,nimi:'Kaerahelbed',suurused:['500g','1kg'],hind:2.20,uhik:'pk'},
+      {id:null,nimi:'Linaseemned',suurused:['250g','500g'],hind:3.20,uhik:'pk'},
+      {id:null,nimi:'Kaerapuder',suurused:['500g','1kg'],hind:2.80,uhik:'pk'},
+    ];
+    nimekiri.forEach(function(t) {
+      if (lower.indexOf(t.nimi.toLowerCase()) >= 0 || lower.indexOf(t.nimi.toLowerCase().substring(0,5)) >= 0) {
+        var kgM = lower.match(/(\d+[\.,]?\d*)\s*kg/);
+        var gM  = lower.match(/(\d+)\s*g\b/);
+        var arvM = lower.match(/(\d+)\s*(tk|tükk|pakk|pakki)/);
+        var kogus = kgM ? parseFloat(kgM[1].replace(',','.')) : arvM ? parseInt(arvM[1]) : 1;
+        var suurus = kgM ? kgM[1].replace(',','.')+'kg' : gM ? gM[1]+'g' : (t.suurused && t.suurused[0] || null);
+        tooted.push({nimi:t.nimi, suurus:suurus, kogus:kogus});
+      }
+    });
+    if (tooted.length === 0) {
+      var words = tekst.split(' ');
+      var toode = words.find(function(w){return w.length>4 && /[a-zäöü]/i.test(w);}) || tekst;
+      tooted.push({nimi:toode, suurus:null, kogus:1});
+    }
+    var mv = lower.indexOf('sularaha')>=0?'Sularaha':lower.indexOf('panga')>=0?'Pangaülekanne':'Arve';
+    var eestiNimed = ['Mari','Jüri','Liisa','Tauno','Kaia','Peeter','Mati','Tiiu','Anne','Toomas','Raivo','Moonika'];
+    var klient = eestiNimed.find(function(n){return lower.indexOf(n.toLowerCase())>=0;});
+    if (!klient) {
+      var words2 = tekst.split(' ');
+      klient = words2.find(function(w){return w.length>3 && /^[A-ZÄÖÜ]/.test(w);}) || 'Klient';
+    }
+    return {klient_nimi:klient, tooted:tooted, makseviis:mv, markus:null};
+  }
+
+  // ─── Faasi haldus ─────────────────────────────────────────────
+  function setPhase(p) {
+    phase = p;
+    var btn = document.getElementById('mic-btn');
+    var inner = document.getElementById('mic-inner');
+    var st = document.getElementById('status-txt');
+    btn.className = 'mic-ring' + (p==='rec'?' rec':p==='proc'?' proc':p==='done'?' done':'');
+    inner.textContent = p==='rec'?'⏹':p==='proc'?'⌛':p==='done'?'✓':'🎤';
+    st.className = 'status' + (p==='rec'?' rec':p==='proc'?' proc':p==='done'?' done':'');
+    if (p==='idle')   st.textContent = 'Vajuta ja räägi';
+    if (p==='rec')    st.textContent = '● Kuulan...';
+    if (p==='proc')   st.innerHTML = '<span class="spinner"></span>Analüüsin...';
+    if (p==='result') st.textContent = 'Kontrolli ja kinnita';
+    if (p==='done')   st.textContent = '✓ Lisatud!';
+  }
+
+  function esc(s) {
+    return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  function toast(txt, ok) {
+    var el = document.getElementById('toast');
+    el.textContent = txt;
+    el.className = 'toast' + (ok!==false?' ok':' ') + ' show';
+    setTimeout(function(){el.className='toast';}, 2500);
+  }
+
+  // ─── Nupu klikk ───────────────────────────────────────────────
+  window.btnClick = function() {
+    if (phase === 'idle') startRec();
+    else if (phase === 'rec') stopRec();
+  };
+
+  // ─── Kõnetuvastus ─────────────────────────────────────────────
+  function startRec() {
+    var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) {
+      var warn = document.getElementById('warn');
+      warn.innerHTML = '⚠ Kõnetuvastus töötab ainult <strong>Chrome</strong> brauseris. Ava see leht Chrome\'is!';
+      warn.style.display = 'block';
+      return;
+    }
+    document.getElementById('warn').style.display = 'none';
+    document.getElementById('hint').style.display = 'none';
+    document.getElementById('transcript').style.display = 'none';
+    document.getElementById('result-card').style.display = 'none';
+
+    recog = new SR();
+    recog.lang = 'et-EE';
+    recog.continuous = false;
+    recog.interimResults = true;
+
+    recog.onstart = function() { setPhase('rec'); };
+
+    recog.onresult = function(e) {
+      var t = '';
+      for (var i = e.resultIndex; i < e.results.length; i++) {
+        t += e.results[i][0].transcript;
+      }
+      var tr = document.getElementById('transcript');
+      tr.textContent = '"' + t + '"';
+      tr.style.display = 'block';
+
+      if (e.results[e.results.length-1].isFinal) {
+        recog.stop();
+        setPhase('proc');
+        clearTimeout(recTimer);
+
+        var doParsi = CLAUDE && CLAUDE !== 'LISA_OMA_CLAUDE_API_VOTI'
+          ? parsiClaudega(t)
+          : Promise.resolve(parsiFallback(t));
+
+        doParsi.then(function(result) {
+          curResult = result;
+          naitaTulemus(result);
+          setPhase('result');
+        }).catch(function(err) {
+          console.warn('Parsimine ebaõnnestus, kasutan fallback:', err.message);
+          var result = parsiFallback(t);
+          curResult = result;
+          naitaTulemus(result);
+          setPhase('result');
+        });
+      }
+    };
+
+    recog.onerror = function(e) {
+      setPhase('idle');
+      var tr = document.getElementById('transcript');
+      if (e.error === 'no-speech') {
+        tr.textContent = 'Kõnet ei tuvastatud. Proovi uuesti.';
+      } else {
+        tr.textContent = 'Viga: ' + e.error;
+      }
+      tr.style.display = 'block';
+    };
+
+    recog.onend = function() {
+      if (phase === 'rec') setPhase('idle');
+    };
+
+    recog.start();
+    recTimer = setTimeout(function() {
+      try { recog.stop(); } catch(e) {}
+    }, 10000);
+  }
+
+  function stopRec() {
+    clearTimeout(recTimer);
+    try { recog.stop(); } catch(e) {}
+    setPhase('proc');
+  }
+
+  // ─── Tulemuse kuvamine ────────────────────────────────────────
+  function naitaTulemus(r) {
+    var card = document.getElementById('result-card');
+    var summa = (r.tooted||[]).reduce(function(s,t) {
+      var dbT = dbTooted.find(function(d){return d.nimi===t.nimi;});
+      return s + (dbT && dbT.hind ? t.kogus * parseFloat(dbT.hind) : 0);
+    }, 0);
+
+    var html = '<div class="rc-header">' +
+      '<div class="rc-avatar">' + esc((r.klient_nimi||'?').charAt(0)) + '</div>' +
+      '<span class="rc-nimi">' + esc(r.klient_nimi||'Klient') + '</span>' +
+      '<span class="rc-kanal">hääl</span></div>';
+
+    (r.tooted||[]).forEach(function(t) {
+      var dbT = dbTooted.find(function(d){return d.nimi===t.nimi;});
+      var hind = dbT && dbT.hind ? (t.kogus * parseFloat(dbT.hind)).toFixed(2) + VAL : '';
+      html += '<div class="rc-rida">' +
+        '<span class="rc-rida-nimi">' + esc(t.nimi) + (t.suurus ? ' <span style="color:var(--text3)">(' + esc(t.suurus) + ')</span>' : '') + '</span>' +
+        '<span class="rc-rida-kogus">×' + t.kogus + (hind ? ' — ' + hind : '') + '</span></div>';
+    });
+
+    if (summa > 0) {
+      html += '<div class="rc-kokku"><span>Kokku</span><span>' + summa.toFixed(2) + VAL + '</span></div>';
+    }
+    html += '<div class="rc-mv">Makseviis: ' + esc(r.makseviis||'Arve') + '</div>';
+    if (r.markus) {
+      html += '<div class="rc-markus">Märkus: ' + esc(r.markus) + '</div>';
+    }
+    html += '<div class="btn-row">' +
+      '<button class="btn-cancel" onclick="reset()">Tühista</button>' +
+      '<button class="btn-ok" id="btn-ok" onclick="kinnita()">✓ Lisa tellimus</button>' +
+      '</div>';
+
+    card.innerHTML = html;
+    card.style.display = 'block';
+  }
+
+  // ─── Kinnita ja salvesta ──────────────────────────────────────
+  window.kinnita = async function() {
+    if (!curResult) return;
+    var btn = document.getElementById('btn-ok');
+    if (btn) btn.disabled = true;
+
+    try {
+      // Salvesta tellimus
+      var tell = await sbPost('tellimused', {
+        tarnija_id:    TID,
+        klient_nimi:   curResult.klient_nimi || 'Tundmatu',
+        kanal:         'hääl',
+        staatus:       'uus',
+        makseviis:     curResult.makseviis || 'Arve',
+        markus:        curResult.markus || null,
+        loodud:        new Date().toISOString()
+      });
+      var tellimusId = tell[0].id;
+
+      // Salvesta read
+      var read = (curResult.tooted||[]).map(function(t) {
+        var dbT = dbTooted.find(function(d){
+          return d.nimi.toLowerCase() === t.nimi.toLowerCase() ||
+                 d.nimi.toLowerCase().indexOf(t.nimi.toLowerCase()) >= 0;
+        });
+        return {
+          tellimus_id: tellimusId,
+          toode_id:    dbT ? dbT.id : null,
+          kogus:       t.kogus || 1,
+          suurus:      t.suurus || null,
+          uhikhind:    dbT ? dbT.hind : null
+        };
+      }).filter(function(r){return r.toode_id !== null;});
+
+      if (read.length > 0) {
+        await sbPost('tellimus_read', read);
+      }
+
+      // Lisa ajalukku
+      var entry = {
+        id:     Date.now(),
+        klient: curResult.klient_nimi || 'Tundmatu',
+        tooted: curResult.tooted || [],
+        mv:     curResult.makseviis || 'Arve',
+        aeg:    new Date().toLocaleTimeString('et-EE', {hour:'2-digit',minute:'2-digit'})
+      };
+      history.unshift(entry);
+      if (history.length > 8) history.pop();
+
+      setPhase('done');
+      document.getElementById('result-card').style.display = 'none';
+      document.getElementById('transcript').style.display = 'none';
+      uuendaAjalugu();
+      toast('Tellimus lisatud!', true);
+      curResult = null;
+
+      setTimeout(function() {
+        setPhase('idle');
+        document.getElementById('hint').style.display = 'block';
+      }, 1800);
+
+    } catch(e) {
+      toast('Viga: ' + e.message, false);
+      if (btn) btn.disabled = false;
+    }
+  };
+
+  // ─── Reset ────────────────────────────────────────────────────
+  window.reset = function() {
+    setPhase('idle');
+    document.getElementById('result-card').style.display = 'none';
+    document.getElementById('transcript').style.display = 'none';
+    document.getElementById('hint').style.display = 'block';
+    curResult = null;
+  };
+
+  // ─── Ajalugu ──────────────────────────────────────────────────
+  function uuendaAjalugu() {
+    if (history.length === 0) return;
+    var wrap = document.getElementById('history');
+    var list = document.getElementById('history-list');
+    wrap.style.display = 'block';
+    list.innerHTML = history.map(function(h) {
+      var toodedTxt = (h.tooted||[]).slice(0,3).map(function(t){
+        return esc(t.nimi) + ' ×' + t.kogus;
+      }).join(', ') + (h.tooted.length > 3 ? ' +' + (h.tooted.length-3) : '');
+      return '<div class="hist-item">' +
+        '<div><div class="hist-nimi">' + esc(h.klient) + '</div>' +
+        '<div class="hist-tooted">' + toodedTxt + '</div></div>' +
+        '<div class="hist-right">' +
+        '<span class="hist-badge">✓</span>' +
+        '<span class="hist-aeg">' + esc(h.aeg) + '</span></div></div>';
+    }).join('');
+  }
+
+})();
+</script>
+</body>
+</html>

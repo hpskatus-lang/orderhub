@@ -1,0 +1,1031 @@
+<!DOCTYPE html>
+<html lang="et">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OrderHub</title>
+  <style>
+    :root {
+      --bg: #0f0f0f; --bg2: #1a1a1a; --bg3: #242424;
+      --border: #2e2e2e; --border2: #3a3a3a;
+      --text: #e8e8e8; --text2: #888; --text3: #555;
+      --green: #1D9E75; --green-dim: #0d3d2d;
+      --blue: #378ADD; --blue-dim: #0c2240;
+      --amber: #EF9F27; --amber-dim: #3d2800;
+      --red: #E24B4A; --red-dim: #3d0f0f;
+      --mono: 'IBM Plex Mono', monospace;
+      --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      --nav-h: 56px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg); color: var(--text); font-family: var(--sans); font-size: 14px; min-height: 100vh; padding-bottom: var(--nav-h); }
+
+    /* ─── Päis ─── */
+    .header { background: var(--bg); border-bottom: 1px solid var(--border); padding: 0 16px; height: 50px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
+    .header-logo { font-family: var(--mono); font-size: 13px; font-weight: 500; color: var(--text); display: flex; align-items: center; gap: 8px; }
+    .header-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); animation: pulse 2s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+    .header-firma { font-size: 12px; color: var(--text3); }
+    .header-right { display: flex; align-items: center; gap: 8px; }
+    .btn-refresh { background: none; border: 1px solid var(--border2); border-radius: 6px; padding: 5px 10px; font-size: 12px; color: var(--text2); cursor: pointer; display: flex; align-items: center; gap: 5px; transition: all .15s; }
+    .btn-refresh:hover { color: var(--text); border-color: var(--text3); }
+    .btn-refresh.loading { opacity: .4; pointer-events: none; }
+
+    /* ─── Alumine navigatsioon ─── */
+    .nav { position: fixed; bottom: 0; left: 0; right: 0; height: var(--nav-h); background: var(--bg2); border-top: 1px solid var(--border); display: flex; z-index: 100; }
+    .nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; cursor: pointer; border: none; background: none; color: var(--text3); font-size: 10px; font-family: var(--sans); transition: color .15s; padding: 6px 0; }
+    .nav-item .nav-ikoon { font-size: 20px; line-height: 1; }
+    .nav-item.on { color: var(--green); }
+    .nav-item:hover { color: var(--text2); }
+
+    /* ─── Vaated ─── */
+    .vaade { display: none; }
+    .vaade.on { display: block; }
+
+    /* ─── Statistika ─── */
+    .stats { display: grid; grid-template-columns: repeat(2,1fr); gap: 1px; background: var(--border); border-bottom: 1px solid var(--border); }
+    .stat { background: var(--bg); padding: 14px 16px; }
+    .stat-n { font-family: var(--mono); font-size: 24px; font-weight: 500; margin-bottom: 2px; }
+    .stat-n.green { color: var(--green); }
+    .stat-n.amber { color: var(--amber); }
+    .stat-l { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: .06em; }
+
+    /* ─── Filter ─── */
+    .filter-bar { padding: 10px 16px; border-bottom: 1px solid var(--border); display: flex; gap: 6px; flex-wrap: wrap; }
+    .filter-btn { padding: 4px 10px; border-radius: 4px; border: 1px solid var(--border2); background: none; font-size: 12px; color: var(--text2); cursor: pointer; font-family: var(--sans); transition: all .12s; }
+    .filter-btn:hover { color: var(--text); }
+    .filter-btn.on { background: var(--text); color: var(--bg); border-color: var(--text); }
+    .filter-count { font-family: var(--mono); font-size: 10px; opacity: .6; margin-left: 3px; }
+
+    /* ─── Tellimused ─── */
+    .tellimus { border-bottom: 1px solid var(--border); padding: 12px 16px; cursor: pointer; transition: background .1s; }
+    .tellimus:hover, .tellimus.open { background: var(--bg2); }
+    .tellimus-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px; }
+    .tellimus-nimi { font-size: 14px; font-weight: 500; margin-bottom: 2px; }
+    .tellimus-meta { font-size: 11px; color: var(--text3); display: flex; gap: 6px; flex-wrap: wrap; }
+    .tellimus-right { display: flex; flex-direction: column; align-items: flex-end; gap: 5px; }
+    .staatus { font-family: var(--mono); font-size: 10px; padding: 2px 7px; border-radius: 3px; font-weight: 500; text-transform: uppercase; letter-spacing: .04em; }
+    .s-uus       { background: var(--blue-dim);  color: var(--blue);   border: 1px solid #1a3a5c; }
+    .s-kinnitatud{ background: var(--green-dim); color: var(--green);  border: 1px solid #1a4a35; }
+    .s-saadetud  { background: var(--green-dim); color: #5DCAA5;       border: 1px solid #1a4a35; }
+    .s-probleem  { background: var(--red-dim);   color: var(--red);    border: 1px solid #5a1a1a; }
+    .s-lahendatud{ background: var(--bg3);       color: var(--text3);  border: 1px solid var(--border2); }
+    .tellimus-summa { font-family: var(--mono); font-size: 12px; color: var(--text2); }
+    .toode-tag { font-size: 11px; padding: 2px 7px; border-radius: 3px; background: var(--bg3); color: var(--text2); border: 1px solid var(--border); font-family: var(--mono); margin-right: 4px; margin-bottom: 3px; display: inline-block; }
+    .kanal-tag { font-size: 10px; padding: 1px 5px; border-radius: 3px; background: var(--bg3); color: var(--text3); border: 1px solid var(--border); font-family: var(--mono); }
+
+    /* ─── Detail ─── */
+    .tellimus-detail { display: none; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
+    .tellimus.open .tellimus-detail { display: block; }
+    .detail-table { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
+    .detail-table th { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: .05em; padding: 0 0 7px; text-align: left; border-bottom: 1px solid var(--border); }
+    .detail-table td { padding: 7px 0; font-size: 13px; border-bottom: 1px solid var(--border); }
+    .detail-table td:last-child { text-align: right; color: var(--text2); font-family: var(--mono); }
+    .detail-table tr:last-child td { border-bottom: none; }
+    .detail-kokku { display: flex; justify-content: space-between; padding: 8px 0; border-top: 1px solid var(--border2); font-weight: 500; }
+    .detail-kokku span:last-child { font-family: var(--mono); color: var(--green); }
+    .detail-info { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+    .di { font-size: 12px; }
+    .di .lbl { color: var(--text3); font-size: 11px; margin-bottom: 1px; }
+    .staatus-muuda { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+    .st-btn { padding: 5px 11px; border-radius: 4px; border: 1px solid var(--border2); background: none; font-size: 11px; color: var(--text2); cursor: pointer; font-family: var(--sans); transition: all .12s; }
+    .st-btn:hover { color: var(--text); border-color: var(--text3); }
+    .st-btn.g { border-color: var(--green); color: var(--green); }
+    .st-btn.g:hover { background: var(--green-dim); }
+    .st-btn.r { border-color: var(--red); color: var(--red); }
+    .st-btn.r:hover { background: var(--red-dim); }
+
+    /* ─── Tooted vaade ─── */
+    .toode-kaart { border-bottom: 1px solid var(--border); padding: 14px 16px; }
+    .toode-kaart:hover { background: var(--bg2); }
+    .toode-päis { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px; }
+    .toode-nimi { font-size: 14px; font-weight: 500; }
+    .toode-hind { font-family: var(--mono); font-size: 13px; color: var(--green); }
+    .toode-meta { font-size: 11px; color: var(--text3); display: flex; gap: 8px; flex-wrap: wrap; }
+    .toode-suurused { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 6px; }
+    .sz-tag { font-size: 10px; padding: 2px 7px; border-radius: 3px; background: var(--bg3); color: var(--text3); border: 1px solid var(--border); }
+    .toode-nupud { display: flex; gap: 6px; margin-top: 10px; }
+    .toode-btn { padding: 5px 12px; border-radius: 5px; border: 1px solid var(--border2); background: none; font-size: 12px; color: var(--text2); cursor: pointer; }
+    .toode-btn:hover { color: var(--text); border-color: var(--text3); }
+    .toode-btn.r { border-color: var(--red); color: var(--red); }
+
+    /* ─── Toote vorm ─── */
+    .vorm-paneel { background: var(--bg2); border-bottom: 1px solid var(--border); padding: 16px; }
+    .vorm-pealkiri { font-size: 13px; font-weight: 500; margin-bottom: 14px; color: var(--text); }
+    .väli { margin-bottom: 12px; }
+    .väli label { display: block; font-size: 12px; color: var(--text3); margin-bottom: 5px; }
+    .väli input, .väli select { width: 100%; padding: 9px 12px; background: var(--bg); border: 1px solid var(--border2); border-radius: 7px; color: var(--text); font-size: 14px; font-family: var(--sans); outline: none; transition: border-color .15s; }
+    .väli input:focus { border-color: var(--blue); }
+    .väli-rida { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .btn-p { height: 40px; padding: 0 18px; background: var(--green); color: #fff; border: none; border-radius: 7px; font-size: 13px; font-weight: 500; cursor: pointer; }
+    .btn-s { height: 40px; padding: 0 14px; background: none; border: 1px solid var(--border2); border-radius: 7px; font-size: 13px; color: var(--text2); cursor: pointer; }
+    .btn-nupud { display: flex; gap: 8px; }
+
+    /* ─── Seaded vaade ─── */
+    .seaded-sisu { padding: 16px; max-width: 560px; margin: 0 auto; padding-bottom: 80px; }
+    .sektsioon { margin-bottom: 24px; }
+    .sektsioon-pealkiri { font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: .06em; font-weight: 500; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+    .sektsioon-pealkiri::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+    .seaded-kaart { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+    .seade-rida { display: flex; align-items: center; padding: 12px 14px; border-bottom: 1px solid var(--border); gap: 10px; }
+    .seade-rida:last-child { border-bottom: none; }
+    .seade-lbl { font-size: 13px; color: var(--text); flex: 1; }
+    .seade-kirj { font-size: 11px; color: var(--text3); }
+    .seade-inp { background: var(--bg); border: 1px solid var(--border2); border-radius: 6px; padding: 7px 10px; color: var(--text); font-size: 13px; font-family: var(--sans); outline: none; width: 200px; }
+    .seade-inp:focus { border-color: var(--blue); }
+    .seade-inp.mono { font-family: var(--mono); font-size: 11px; }
+    .olek-badge { font-size: 10px; padding: 2px 7px; border-radius: 3px; }
+    .olek-ok { background: var(--green-dim); color: var(--green); }
+    .olek-tühi { background: var(--bg3); color: var(--text3); border: 1px solid var(--border2); }
+    .mv-wrap { display: flex; gap: 6px; flex-wrap: wrap; padding: 10px 14px; }
+    .mv-tag { display: flex; align-items: center; gap: 5px; background: var(--bg3); border: 1px solid var(--border2); border-radius: 5px; padding: 4px 9px; font-size: 12px; color: var(--text2); }
+    .mv-x { background: none; border: none; color: var(--text3); cursor: pointer; font-size: 16px; line-height: 1; padding: 0; }
+    .mv-x:hover { color: var(--red); }
+    .mv-lisa { display: flex; gap: 8px; padding: 0 14px 12px; }
+    .mv-lisa input { flex: 1; background: var(--bg); border: 1px solid var(--border2); border-radius: 6px; padding: 7px 10px; color: var(--text); font-size: 13px; outline: none; }
+    .mv-lisa input:focus { border-color: var(--blue); }
+    .mv-lisa-btn { padding: 0 12px; background: none; border: 1px solid var(--border2); border-radius: 6px; color: var(--text2); cursor: pointer; font-size: 13px; white-space: nowrap; }
+    .salv-riba { position: fixed; bottom: var(--nav-h); left: 0; right: 0; background: var(--bg2); border-top: 1px solid var(--border); padding: 10px 16px; display: none; justify-content: space-between; align-items: center; z-index: 99; }
+    .salv-riba.naitab { display: flex; }
+    .salv-olek { font-size: 13px; color: var(--text3); }
+    .salv-olek.ok { color: var(--green); }
+    .salv-olek.err { color: var(--red); }
+    .salv-btn { height: 38px; padding: 0 20px; background: var(--green); color: #fff; border: none; border-radius: 7px; font-size: 13px; font-weight: 500; cursor: pointer; }
+    .salv-btn:disabled { opacity: .5; cursor: not-allowed; }
+
+    /* ─── Hääl ─── */
+    .haale-fab { position: fixed; bottom: calc(var(--nav-h) + 16px); right: 16px; width: 54px; height: 54px; border-radius: 50%; background: var(--green); border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 22px; box-shadow: 0 4px 16px rgba(29,158,117,.35); transition: all .2s; z-index: 98; }
+    .haale-fab:hover { transform: scale(1.08); }
+    .haale-fab.salvestab { background: var(--red); animation: hpulse 1s infinite; }
+    .haale-fab.tootleb { background: var(--amber); }
+    @keyframes hpulse { 0%,100%{box-shadow:0 4px 16px rgba(226,75,74,.35)} 50%{box-shadow:0 4px 28px rgba(226,75,74,.7)} }
+    .haale-paneel { position: fixed; bottom: calc(var(--nav-h) + 80px); right: 12px; width: 290px; background: var(--bg2); border: 1px solid var(--border2); border-radius: 12px; padding: 14px; z-index: 98; display: none; box-shadow: 0 8px 28px rgba(0,0,0,.4); }
+    .haale-paneel.naitab { display: block; }
+    .haale-h { font-size: 13px; font-weight: 500; margin-bottom: 6px; }
+    .haale-olek { font-size: 11px; color: var(--text3); margin-bottom: 6px; min-height: 16px; }
+    .haale-tekst { font-size: 12px; color: var(--text2); line-height: 1.6; min-height: 50px; font-style: italic; margin-bottom: 10px; }
+    .haale-tulemus { background: var(--bg3); border: 1px solid var(--border); border-radius: 7px; padding: 9px 11px; margin-bottom: 10px; display: none; }
+    .haale-tulemus.naitab { display: block; }
+    .hr { font-size: 12px; color: var(--text2); margin-bottom: 3px; }
+    .haale-nupud { display: flex; gap: 7px; }
+    .haale-kinnita { flex: 1; height: 34px; background: var(--green); color: #fff; border: none; border-radius: 6px; font-size: 12px; font-weight: 500; cursor: pointer; display: none; }
+    .haale-kinnita.naitab { display: block; }
+    .haale-sulge { height: 34px; padding: 0 12px; background: none; border: 1px solid var(--border2); border-radius: 6px; font-size: 12px; color: var(--text3); cursor: pointer; }
+
+    /* ─── Üldised ─── */
+    .spinner { width: 18px; height: 18px; border: 2px solid var(--border2); border-top-color: var(--green); border-radius: 50%; animation: spin .6s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .laadimine { display: flex; align-items: center; gap: 10px; padding: 40px 16px; justify-content: center; color: var(--text3); font-size: 13px; }
+    .tyhi { padding: 50px 16px; text-align: center; color: var(--text3); }
+    .tyhi-nr { font-family: var(--mono); font-size: 40px; color: var(--border2); margin-bottom: 10px; }
+    .viga-plokk { margin: 14px 16px; padding: 12px 14px; background: var(--red-dim); border: 1px solid #5a1a1a; border-radius: 7px; color: var(--red); font-size: 13px; }
+    .toast { position: fixed; bottom: calc(var(--nav-h) + 10px); left: 50%; transform: translateX(-50%) translateY(60px); background: var(--bg3); border: 1px solid var(--border2); border-radius: 6px; padding: 9px 16px; font-size: 13px; color: var(--text); transition: transform .2s; z-index: 999; white-space: nowrap; }
+    .toast.show { transform: translateX(-50%) translateY(0); }
+    .toast.ok { border-color: var(--green); color: var(--green); }
+    .ver { text-align: center; font-size: 11px; color: var(--text3); padding: 20px 0 8px; font-family: var(--mono); }
+
+    /* ─── Parool leht ─── */
+    .parool-leht { min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+    .parool-kaart { background: var(--bg2); border: 1px solid var(--border2); border-radius: 14px; padding: 28px; width: 280px; text-align: center; }
+    .parool-inp { width: 100%; padding: 11px 14px; background: var(--bg); border: 1px solid var(--border2); border-radius: 8px; color: var(--text); font-size: 18px; text-align: center; letter-spacing: 4px; outline: none; margin-bottom: 8px; font-family: var(--mono); }
+    .parool-inp:focus { border-color: var(--blue); }
+    .parool-viga { font-size: 12px; color: var(--red); min-height: 16px; margin-bottom: 8px; }
+    .parool-btn { width: 100%; height: 42px; background: var(--green); color: #fff; border: none; border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer; }
+
+    @media (max-width: 480px) {
+      .detail-info { grid-template-columns: 1fr; }
+      .väli-rida { grid-template-columns: 1fr; }
+      .seade-inp { width: 150px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- KONFIGURATSIOON -->
+<script>
+window.OHConfig = {
+  supabaseUrl:  'https://dewnjlvwasxludspbpfm.supabase.co',
+  supabaseKey:  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRld25qbHZ3YXN4bHVkc3BicGZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgzMjIyMDMsImV4cCI6MjA5Mzg5ODIwM30.HJl5w_HqAWn1YVczBo96eobxJzDohatsVY8yqGK2QJs',
+  tarnijaId:    '8252e26f-f940-4ea9-abbf-0b68b9a19dfa',
+  versioon:     'v1.1'
+};
+</script>
+
+<div id="app"></div>
+<div class="toast" id="toast"></div>
+
+<script>
+(function() {
+  'use strict';
+
+  const cfg = window.OHConfig || {};
+  const SB_URL = cfg.supabaseUrl;
+  const SB_KEY = cfg.supabaseKey;
+  const TID    = cfg.tarnijaId;
+  const VER    = cfg.versioon || 'v1.1';
+
+  // ─── Olek ────────────────────────────────────────────────────
+  let S = {
+    autentitud: false,
+    vaade: 'tellimused',
+    tellimused: [],
+    tooted: [],
+    seaded: {},
+    makseviisid: ['Arve', 'Pangaülekanne', 'Sularaha'],
+    filter: 'kõik',
+    avatud: null,
+    toodevorm: false,
+    muudaToode: null,
+    laadimine: false,
+  };
+
+  // ─── Supabase ─────────────────────────────────────────────────
+  async function sb(endpoint, opts = {}) {
+    const r = await fetch(`${SB_URL}/rest/v1/${endpoint}`, {
+      ...opts,
+      headers: {
+        'apikey': SB_KEY, 'Authorization': `Bearer ${SB_KEY}`,
+        'Content-Type': 'application/json',
+        'Prefer': opts.prefer || 'return=representation',
+        ...(opts.headers || {})
+      }
+    });
+    if (!r.ok) throw new Error(`${r.status}: ${await r.text()}`);
+    const t = await r.text();
+    return t ? JSON.parse(t) : null;
+  }
+
+  // ─── Seaded ───────────────────────────────────────────────────
+  async function laeSeaded() {
+    try {
+      const rows = await sb(`seaded?tarnija_id=eq.${TID}&select=voti,vaartus`);
+      S.seaded = {};
+      (rows || []).forEach(r => { S.seaded[r.voti] = r.vaartus || ''; });
+      if (S.seaded.makseviisid) {
+        S.makseviisid = S.seaded.makseviisid.split(',').map(s => s.trim()).filter(Boolean);
+      }
+    } catch(e) {
+      console.warn('Seadete laadimine ebaõnnestus:', e.message);
+    }
+  }
+
+  async function salvestaSeaded(uued) {
+    for (const [voti, vaartus] of Object.entries(uued)) {
+      const olemas = await sb(`seaded?tarnija_id=eq.${TID}&voti=eq.${encodeURIComponent(voti)}&select=id`);
+      if (olemas && olemas.length > 0) {
+        await sb(`seaded?tarnija_id=eq.${TID}&voti=eq.${encodeURIComponent(voti)}`, {
+          method: 'PATCH', prefer: 'return=minimal',
+          body: JSON.stringify({ vaartus, uuendatud: new Date().toISOString() })
+        });
+      } else {
+        await sb('seaded', {
+          method: 'POST', prefer: 'return=minimal',
+          body: JSON.stringify({ tarnija_id: TID, voti, vaartus })
+        });
+      }
+      S.seaded[voti] = vaartus;
+    }
+  }
+
+  // ─── Andmete laadimine ────────────────────────────────────────
+  window.laeKõik = async function() {
+    const btn = document.getElementById('refresh-btn');
+    if (btn) btn.classList.add('loading');
+    try {
+      const tell = await sb(`tellimused?tarnija_id=eq.${TID}&select=*&order=loodud.desc`);
+      if (tell && tell.length > 0) {
+        const ids = tell.map(t => t.id).join(',');
+        const read = await sb(`tellimus_read?tellimus_id=in.(${ids})&select=*,tooted(nimi,uhik)`);
+        tell.forEach(t => { t._read = (read || []).filter(r => r.tellimus_id === t.id); });
+      }
+      S.tellimused = tell || [];
+      renderdaTellimused();
+    } catch(e) {
+      if (document.getElementById('tell-sisu')) {
+        document.getElementById('tell-sisu').innerHTML = `<div class="viga-plokk">⚠ ${esc(e.message)} <button onclick="laeKõik()" style="margin-left:8px;background:none;border:1px solid var(--red);border-radius:4px;padding:3px 8px;color:var(--red);cursor:pointer;font-size:12px;">Proovi</button></div>`;
+      }
+    }
+    if (btn) btn.classList.remove('loading');
+  };
+
+  async function laeTooted() {
+    try {
+      S.tooted = await sb(`tooted?tarnija_id=eq.${TID}&select=*&order=nimi.asc`) || [];
+      renderdaTooted();
+    } catch(e) {
+      if (document.getElementById('tooted-sisu')) {
+        document.getElementById('tooted-sisu').innerHTML = `<div class="viga-plokk">⚠ ${esc(e.message)}</div>`;
+      }
+    }
+  }
+
+  // ─── Aeg ──────────────────────────────────────────────────────
+  function aeg(iso) {
+    if (!iso) return '—';
+    const d = new Date(iso), n = new Date();
+    const diff = Math.floor((n - d) / 1000);
+    if (diff < 60) return 'just nüüd';
+    if (diff < 3600) return Math.floor(diff/60) + ' min tagasi';
+    if (diff < 86400) return Math.floor(diff/3600) + 'h tagasi';
+    return d.toLocaleDateString('et-EE', { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' });
+  }
+
+  function esc(s) {
+    return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function toast(t, ok=true) {
+    const el = document.getElementById('toast');
+    el.textContent = t;
+    el.className = 'toast' + (ok ? ' ok show' : ' show');
+    setTimeout(() => el.className = 'toast', 2500);
+  }
+
+  function val(id) {
+    const el = document.getElementById(id);
+    return el ? el.value.trim() : '';
+  }
+
+  // ─── Peamine render ───────────────────────────────────────────
+  function rend() {
+    if (!S.autentitud) { renderdaParool(); return; }
+    renderdaPõhi();
+  }
+
+  function renderdaParool() {
+    document.getElementById('app').innerHTML = `
+      <div class="parool-leht">
+        <div class="parool-kaart">
+          <div style="font-size:28px;margin-bottom:10px">🔐</div>
+          <div style="font-family:var(--mono);font-size:14px;font-weight:500;margin-bottom:4px">OrderHub ${VER}</div>
+          <div style="font-size:12px;color:var(--text3);margin-bottom:18px">${esc(S.seaded.firma_nimi || 'Admin')}</div>
+          <input type="password" class="parool-inp" id="pv" placeholder="Parool">
+          <div class="parool-viga" id="pv-err"></div>
+          <button class="parool-btn" onclick="kontrolliParool()">Sisene →</button>
+        </div>
+      </div>`;
+    setTimeout(() => {
+      const pv = document.getElementById('pv');
+      if (pv) { pv.focus(); pv.onkeydown = e => { if (e.key==='Enter') kontrolliParool(); }; }
+    }, 30);
+  }
+
+  window.kontrolliParool = function() {
+    const v = document.getElementById('pv').value;
+    const p = S.seaded.admin_parool || 'tammejuure2024';
+    if (v === p) {
+      try { sessionStorage.setItem('oh_auth', p); } catch(e) {}
+      S.autentitud = true;
+      renderdaPõhi();
+      laeKõik();
+    } else {
+      document.getElementById('pv-err').textContent = 'Vale parool';
+      document.getElementById('pv').value = '';
+      document.getElementById('pv').focus();
+    }
+  };
+
+  function renderdaPõhi() {
+    document.getElementById('app').innerHTML = `
+      <header class="header">
+        <div class="header-logo">
+          <div class="header-dot"></div>
+          <span>OrderHub</span>
+          <span class="header-firma" id="header-firma">${esc(S.seaded.firma_nimi || '')}</span>
+        </div>
+        <div class="header-right">
+          <span style="font-family:var(--mono);font-size:11px;color:var(--text3)">${VER}</span>
+          <button class="btn-refresh" id="refresh-btn" onclick="praeguneUuenda()">↻ Uuenda</button>
+        </div>
+      </header>
+
+      <div id="vaade-tellimused" class="vaade on">
+        <div id="tell-stats"></div>
+        <div class="filter-bar" id="tell-filter">
+          <button class="filter-btn on" onclick="filtreeri('kõik',this)">Kõik <span class="filter-count" id="fc-koik">0</span></button>
+          <button class="filter-btn" onclick="filtreeri('uus',this)">Uued <span class="filter-count" id="fc-uus">0</span></button>
+          <button class="filter-btn" onclick="filtreeri('kinnitatud',this)">Kinnitatud <span class="filter-count" id="fc-kinn">0</span></button>
+          <button class="filter-btn" onclick="filtreeri('saadetud',this)">Saadetud <span class="filter-count" id="fc-saat">0</span></button>
+          <button class="filter-btn" onclick="filtreeri('probleem',this)">Probleem <span class="filter-count" id="fc-prob">0</span></button>
+        </div>
+        <div id="tell-sisu"><div class="laadimine"><div class="spinner"></div> Laen...</div></div>
+      </div>
+
+      <div id="vaade-tooted" class="vaade">
+        <div style="padding:12px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
+          <span style="font-size:13px;font-weight:500;">Tooted</span>
+          <button class="btn-p" style="height:34px;font-size:12px;" onclick="toodevormAva(null)">+ Lisa toode</button>
+        </div>
+        <div id="tooted-vorm"></div>
+        <div id="tooted-sisu"><div class="laadimine"><div class="spinner"></div> Laen...</div></div>
+      </div>
+
+      <div id="vaade-seaded" class="vaade">
+        <div id="seaded-sisu"></div>
+        <div class="salv-riba" id="salv-riba">
+          <span class="salv-olek" id="salv-olek"></span>
+          <button class="salv-btn" id="salv-btn" onclick="salvestaKõikSeaded()">Salvesta</button>
+        </div>
+      </div>
+
+      <nav class="nav">
+        <button class="nav-item on" id="nav-tellimused" onclick="vahetaVaade('tellimused')">
+          <span class="nav-ikoon">📦</span>Tellimused
+        </button>
+        <button class="nav-item" id="nav-tooted" onclick="vahetaVaade('tooted')">
+          <span class="nav-ikoon">🛍</span>Tooted
+        </button>
+        <button class="nav-item" id="nav-seaded" onclick="vahetaVaade('seaded')">
+          <span class="nav-ikoon">⚙️</span>Seaded
+        </button>
+      </nav>
+
+      <button class="haale-fab" id="haale-fab" title="Häälkäsuga tellimus" onclick="haaleToggle()">🎤</button>
+      <div class="haale-paneel" id="haale-paneel">
+        <div class="haale-h">🎤 Häälkäsuga tellimus</div>
+        <div class="haale-olek" id="h-olek">Vajuta nuppu ja räägi</div>
+        <div class="haale-tekst" id="h-tekst">Näide: "Mari tellis 2kg rukkijahu ja 1kg kaerahelbeid, arve"</div>
+        <div class="haale-tulemus" id="h-tulemus">
+          <div class="hr" id="hr-klient"></div>
+          <div class="hr" id="hr-tooted"></div>
+          <div class="hr" id="hr-mv"></div>
+          <div class="hr" id="hr-markus"></div>
+        </div>
+        <div class="haale-nupud">
+          <button class="haale-sulge" onclick="haaleSulge()">Sulge</button>
+          <button class="haale-kinnita" id="h-kinnita" onclick="haaleKinnita()">✓ Lisa tellimus</button>
+        </div>
+      </div>`;
+
+    renderdaTellimused();
+  }
+
+  // ─── Vaadete vahetus ──────────────────────────────────────────
+  window.vahetaVaade = function(v) {
+    S.vaade = v;
+    document.querySelectorAll('.vaade').forEach(el => el.classList.remove('on'));
+    document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('on'));
+    document.getElementById('vaade-' + v)?.classList.add('on');
+    document.getElementById('nav-' + v)?.classList.add('on');
+    document.getElementById('salv-riba')?.classList.remove('naitab');
+    if (v === 'tooted' && S.tooted.length === 0) laeTooted();
+    if (v === 'seaded') renderdaSeaded();
+    // Häälnupp ainult tellimuste vaates
+    const fab = document.getElementById('haale-fab');
+    if (fab) fab.style.display = v === 'tellimused' ? 'flex' : 'none';
+  };
+
+  window.praeguneUuenda = function() {
+    if (S.vaade === 'tellimused') laeKõik();
+    else if (S.vaade === 'tooted') laeTooted();
+  };
+
+  // ─── Tellimused ───────────────────────────────────────────────
+  function renderdaTellimused() {
+    const stats = document.getElementById('tell-stats');
+    const sisu = document.getElementById('tell-sisu');
+    if (!stats || !sisu) return;
+
+    // Statistika
+    const tana = new Date(); tana.setHours(0,0,0,0);
+    const tanad = S.tellimused.filter(t => new Date(t.loodud) >= tana);
+    const uued = S.tellimused.filter(t => t.staatus === 'uus');
+    let summa = 0;
+    tanad.forEach(t => (t._read||[]).forEach(r => { if(r.uhikhind) summa += r.kogus * parseFloat(r.uhikhind); }));
+    const kanalid = new Set(S.tellimused.map(t => t.kanal)).size;
+
+    stats.innerHTML = `
+      <div class="stats">
+        <div class="stat"><div class="stat-n green">${uued.length}</div><div class="stat-l">Uut tellimust</div></div>
+        <div class="stat"><div class="stat-n">${tanad.length}</div><div class="stat-l">Kokku täna</div></div>
+        <div class="stat"><div class="stat-n amber">${summa > 0 ? summa.toFixed(2) + (S.seaded.valuuta||'€') : '—'}</div><div class="stat-l">Käive täna</div></div>
+        <div class="stat"><div class="stat-n">${kanalid||'—'}</div><div class="stat-l">Kanalit</div></div>
+      </div>`;
+
+    // Loendid
+    const loe = s => s === 'kõik' ? S.tellimused.length : S.tellimused.filter(t => t.staatus === s).length;
+    ['koik','uus','kinn','saat','prob'].forEach((id,i) => {
+      const el = document.getElementById('fc-' + id);
+      if (el) el.textContent = loe(['kõik','uus','kinnitatud','saadetud','probleem'][i]);
+    });
+
+    // Nimekiri
+    const nimekiri = S.filter === 'kõik' ? S.tellimused : S.tellimused.filter(t => t.staatus === S.filter);
+    if (nimekiri.length === 0) {
+      sisu.innerHTML = `<div class="tyhi"><div class="tyhi-nr">0</div>${S.filter === 'kõik' ? 'Tellimusi pole veel' : 'Selle filtriga pole tellimusi'}</div>`;
+      return;
+    }
+
+    sisu.innerHTML = nimekiri.map(t => {
+      const read = t._read || [];
+      const sm = read.reduce((s,r) => s + (r.uhikhind ? r.kogus * parseFloat(r.uhikhind) : 0), 0);
+      const val = S.seaded.valuuta || '€';
+      const tagid = read.slice(0,3).map(r => `<span class="toode-tag">${esc(r.tooted?.nimi||'?')} ×${r.kogus}</span>`).join('') + (read.length > 3 ? `<span class="toode-tag">+${read.length-3}</span>` : '');
+      const onAv = S.avatud === String(t.id);
+
+      const detailRead = read.map(r => `
+        <tr>
+          <td>${esc(r.tooted?.nimi||'—')}${r.suurus ? ` <span style="color:var(--text3)">(${esc(r.suurus)})</span>` : ''}</td>
+          <td style="text-align:center;color:var(--text2)">${r.kogus} ${esc(r.tooted?.uhik||'')}</td>
+          <td>${r.uhikhind ? (r.kogus*parseFloat(r.uhikhind)).toFixed(2)+val : '—'}</td>
+        </tr>`).join('');
+
+      return `<div class="tellimus ${onAv?'open':''}" data-id="${t.id}" onclick="toggleTellimus(this.dataset.id)">
+        <div class="tellimus-top">
+          <div>
+            <div class="tellimus-nimi">${esc(t.klient_nimi)}</div>
+            <div class="tellimus-meta">
+              <span>${aeg(t.loodud)}</span>
+              <span class="kanal-tag">${esc(t.kanal||'veebivorm')}</span>
+              ${t.makseviis ? `<span>${esc(t.makseviis)}</span>` : ''}
+            </div>
+          </div>
+          <div class="tellimus-right">
+            <span class="staatus s-${t.staatus||'uus'}">${esc(t.staatus||'uus')}</span>
+            ${sm > 0 ? `<span class="tellimus-summa">${sm.toFixed(2)}${val}</span>` : ''}
+          </div>
+        </div>
+        <div>${tagid}</div>
+        <div class="tellimus-detail">
+          <div class="detail-info">
+            <div class="di"><div class="lbl">Klient</div>${esc(t.klient_nimi)}</div>
+            ${t.klient_email ? `<div class="di"><div class="lbl">E-post</div><span style="color:var(--blue)">${esc(t.klient_email)}</span></div>` : ''}
+            ${t.klient_telefon ? `<div class="di"><div class="lbl">Telefon</div>${esc(t.klient_telefon)}</div>` : ''}
+            <div class="di"><div class="lbl">Kanal</div>${esc(t.kanal||'veebivorm')}</div>
+            <div class="di"><div class="lbl">Makseviis</div>${esc(t.makseviis||'—')}</div>
+            <div class="di"><div class="lbl">Nr</div><span style="font-family:var(--mono);font-size:11px">${esc(String(t.tellimus_nr||t.id))}</span></div>
+          </div>
+          ${read.length > 0 ? `
+            <table class="detail-table">
+              <thead><tr><th>Toode</th><th style="text-align:center">Kogus</th><th style="text-align:right">Hind</th></tr></thead>
+              <tbody>${detailRead}</tbody>
+            </table>
+            ${sm > 0 ? `<div class="detail-kokku"><span>Kokku</span><span>${sm.toFixed(2)}${val}</span></div>` : ''}` : ''}
+          ${t.markus ? `<div style="margin:10px 0;font-size:12px;color:var(--text2);padding:8px 10px;background:var(--bg3);border-radius:5px;border-left:2px solid var(--border2)">Märkus: ${esc(t.markus)}</div>` : ''}
+          <div class="staatus-muuda" onclick="event.stopPropagation()">
+            <span style="font-size:11px;color:var(--text3);align-self:center">Muuda:</span>
+            ${t.staatus!=='kinnitatud' ? `<button class="st-btn g" data-id="${t.id}" data-st="kinnitatud" onclick="muudaStaatus(this.dataset.id,this.dataset.st)">Kinnita</button>` : ''}
+            ${t.staatus!=='saadetud'   ? `<button class="st-btn g" data-id="${t.id}" data-st="saadetud"   onclick="muudaStaatus(this.dataset.id,this.dataset.st)">Saadetud</button>` : ''}
+            ${t.staatus!=='probleem'   ? `<button class="st-btn r" data-id="${t.id}" data-st="probleem"   onclick="muudaStaatus(this.dataset.id,this.dataset.st)">Probleem</button>` : ''}
+            ${t.staatus!=='lahendatud' ? `<button class="st-btn"   data-id="${t.id}" data-st="lahendatud" onclick="muudaStaatus(this.dataset.id,this.dataset.st)">Lahendatud</button>` : ''}
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  window.toggleTellimus = function(id) {
+    S.avatud = S.avatud === String(id) ? null : String(id);
+    renderdaTellimused();
+  };
+
+  window.filtreeri = function(f, btn) {
+    S.filter = f;
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('on'));
+    btn.classList.add('on');
+    renderdaTellimused();
+  };
+
+  window.muudaStaatus = async function(id, uus) {
+    try {
+      await sb(`tellimused?id=eq.${parseInt(id)||id}`, {
+        method: 'PATCH', prefer: 'return=minimal',
+        body: JSON.stringify({ staatus: uus })
+      });
+      const t = S.tellimused.find(x => String(x.id) === String(id));
+      if (t) t.staatus = uus;
+      S.avatud = null;
+      renderdaTellimused();
+      toast('Staatus: ' + uus);
+    } catch(e) { toast('Viga: ' + e.message, false); }
+  };
+
+  // ─── Tooted ───────────────────────────────────────────────────
+  function renderdaTooted() {
+    const sisu = document.getElementById('tooted-sisu');
+    if (!sisu) return;
+    if (S.tooted.length === 0) {
+      sisu.innerHTML = '<div class="tyhi"><div class="tyhi-nr">0</div>Tooteid pole. Lisa esimene!</div>';
+      return;
+    }
+    sisu.innerHTML = S.tooted.map(t => `
+      <div class="toode-kaart">
+        <div class="toode-päis">
+          <div>
+            <div class="toode-nimi">${esc(t.nimi)}</div>
+            <div class="toode-meta">
+              <span>${esc(t.uhik||'tk')}</span>
+              ${!t.aktiivne ? '<span style="color:var(--red)">peidetud</span>' : ''}
+            </div>
+          </div>
+          ${t.hind ? `<div class="toode-hind">${parseFloat(t.hind).toFixed(2)}${S.seaded.valuuta||'€'}</div>` : ''}
+        </div>
+        ${t.suurused && t.suurused.length ? `<div class="toode-suurused">${t.suurused.map(s=>`<span class="sz-tag">${esc(s)}</span>`).join('')}</div>` : ''}
+        <div class="toode-nupud">
+          <button class="toode-btn" onclick="toodevormAva(${t.id})">Muuda</button>
+          <button class="toode-btn" onclick="toodeToggleAktiivne(${t.id},${!t.aktiivne})">${t.aktiivne ? 'Peida' : 'Näita'}</button>
+          <button class="toode-btn r" onclick="toodeKustuta(${t.id})">Kustuta</button>
+        </div>
+      </div>`).join('');
+  }
+
+  window.toodevormAva = function(id) {
+    S.toodevorm = true;
+    S.muudaToode = id ? S.tooted.find(t => t.id === id) : null;
+    const t = S.muudaToode || {};
+    const wrap = document.getElementById('tooted-vorm');
+    if (!wrap) return;
+    wrap.innerHTML = `
+      <div class="vorm-paneel">
+        <div class="vorm-pealkiri">${id ? 'Muuda toodet' : 'Lisa uus toode'}</div>
+        <div class="väli"><label>Toote nimi *</label><input type="text" id="tv-nimi" value="${esc(t.nimi||'')}"></div>
+        <div class="väli-rida">
+          <div class="väli"><label>Hind (${S.seaded.valuuta||'€'})</label><input type="number" id="tv-hind" value="${t.hind||''}" step="0.01" placeholder="0.00"></div>
+          <div class="väli"><label>Ühik</label><input type="text" id="tv-uhik" value="${esc(t.uhik||'tk')}" placeholder="tk / kg / pk"></div>
+        </div>
+        <div class="väli"><label>Suurused (koma eraldatult)</label><input type="text" id="tv-suurused" value="${(t.suurused||[]).join(', ')}" placeholder="500g, 1kg, 2kg"></div>
+        <div class="btn-nupud">
+          <button class="btn-s" onclick="toodevormSulge()">Tühista</button>
+          <button class="btn-p" onclick="toodeSalvesta(${id||'null'})">Salvesta</button>
+        </div>
+      </div>`;
+    wrap.scrollIntoView({ behavior: 'smooth' });
+    document.getElementById('tv-nimi')?.focus();
+  };
+
+  window.toodevormSulge = function() {
+    const wrap = document.getElementById('tooted-vorm');
+    if (wrap) wrap.innerHTML = '';
+    S.toodevorm = false; S.muudaToode = null;
+  };
+
+  window.toodeSalvesta = async function(id) {
+    const nimi = val('tv-nimi');
+    if (!nimi) { toast('Nimi on kohustuslik', false); return; }
+    const hind = val('tv-hind');
+    const uhik = val('tv-uhik') || 'tk';
+    const sz = val('tv-suurused').split(',').map(s=>s.trim()).filter(Boolean);
+    const andmed = { tarnija_id: TID, nimi, hind: hind ? parseFloat(hind) : null, uhik, suurused: sz, aktiivne: true };
+    try {
+      if (id) {
+        await sb(`tooted?id=eq.${id}`, { method: 'PATCH', prefer: 'return=minimal', body: JSON.stringify(andmed) });
+        toast('Toode uuendatud!');
+      } else {
+        await sb('tooted', { method: 'POST', prefer: 'return=minimal', body: JSON.stringify(andmed) });
+        toast('Toode lisatud!');
+      }
+      toodevormSulge();
+      await laeTooted();
+    } catch(e) { toast('Viga: ' + e.message, false); }
+  };
+
+  window.toodeToggleAktiivne = async function(id, aktiivne) {
+    try {
+      await sb(`tooted?id=eq.${id}`, { method: 'PATCH', prefer: 'return=minimal', body: JSON.stringify({ aktiivne }) });
+      const t = S.tooted.find(x => x.id === id);
+      if (t) t.aktiivne = aktiivne;
+      renderdaTooted();
+      toast(aktiivne ? 'Toode nähtav' : 'Toode peidetud');
+    } catch(e) { toast('Viga: ' + e.message, false); }
+  };
+
+  window.toodeKustuta = async function(id) {
+    if (!confirm('Kustutad toote päriselt?')) return;
+    try {
+      await sb(`tooted?id=eq.${id}`, { method: 'DELETE', prefer: '' });
+      S.tooted = S.tooted.filter(t => t.id !== id);
+      renderdaTooted();
+      toast('Toode kustutatud');
+    } catch(e) { toast('Viga: ' + e.message, false); }
+  };
+
+  // ─── Seaded ───────────────────────────────────────────────────
+  function renderdaSeaded() {
+    const sisu = document.getElementById('seaded-sisu');
+    if (!sisu) return;
+    const s = S.seaded;
+
+    sisu.innerHTML = `
+      <div class="seaded-sisu">
+
+        <div class="sektsioon">
+          <div class="sektsioon-pealkiri">Firma andmed</div>
+          <div class="seaded-kaart">
+            <div class="seade-rida">
+              <div class="seade-lbl">Firma nimi</div>
+              <input class="seade-inp" id="s-firma_nimi" value="${esc(s.firma_nimi||'')}" oninput="seadeMuutus()">
+            </div>
+            <div class="seade-rida">
+              <div class="seade-lbl">E-post</div>
+              <input class="seade-inp" id="s-firma_email" value="${esc(s.firma_email||'')}" oninput="seadeMuutus()">
+            </div>
+            <div class="seade-rida">
+              <div class="seade-lbl">Telefon</div>
+              <input class="seade-inp" id="s-firma_telefon" value="${esc(s.firma_telefon||'')}" oninput="seadeMuutus()">
+            </div>
+            <div class="seade-rida">
+              <div class="seade-lbl">Aadress</div>
+              <input class="seade-inp" id="s-firma_aadress" value="${esc(s.firma_aadress||'')}" oninput="seadeMuutus()">
+            </div>
+            <div class="seade-rida">
+              <div class="seade-lbl">Valuuta sümbol</div>
+              <input class="seade-inp" id="s-valuuta" value="${esc(s.valuuta||'€')}" style="width:60px" oninput="seadeMuutus()">
+            </div>
+          </div>
+        </div>
+
+        <div class="sektsioon">
+          <div class="sektsioon-pealkiri">Makseviisid</div>
+          <div class="seaded-kaart">
+            <div class="mv-wrap" id="mv-wrap">
+              ${S.makseviisid.map(mv=>`
+                <div class="mv-tag" id="mv-${esc(mv)}">
+                  ${esc(mv)}
+                  <button class="mv-x" onclick="mvEemalda('${esc(mv)}')" title="Eemalda">×</button>
+                </div>`).join('')}
+            </div>
+            <div class="mv-lisa">
+              <input type="text" id="mv-uus" placeholder="Lisa makseviis..." onkeydown="if(event.key==='Enter')mvLisa()">
+              <button class="mv-lisa-btn" onclick="mvLisa()">+ Lisa</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="sektsioon">
+          <div class="sektsioon-pealkiri">Turvalisus</div>
+          <div class="seaded-kaart">
+            <div class="seade-rida">
+              <div><div class="seade-lbl">Admin parool</div><div class="seade-kirj">Sisse logimiseks</div></div>
+              <input class="seade-inp" type="password" id="s-admin_parool" value="${esc(s.admin_parool||'')}" oninput="seadeMuutus()">
+            </div>
+          </div>
+        </div>
+
+        <div class="sektsioon">
+          <div class="sektsioon-pealkiri">Claude API (häälkäsud)</div>
+          <div class="seaded-kaart">
+            <div class="seade-rida">
+              <div>
+                <div class="seade-lbl">API võti</div>
+                <div class="seade-kirj">${s.claude_api_key ? '<span class="olek-badge olek-ok">✓ seadistatud</span>' : '<span class="olek-badge olek-tühi">puudub</span>'}</div>
+              </div>
+              <input class="seade-inp mono" type="password" id="s-claude_api_key" value="${esc(s.claude_api_key||'')}" placeholder="sk-ant-..." oninput="seadeMuutus()">
+            </div>
+          </div>
+        </div>
+
+        <div class="sektsioon">
+          <div class="sektsioon-pealkiri">EmailJS</div>
+          <div class="seaded-kaart">
+            <div class="seade-rida">
+              <div class="seade-lbl">Service ID</div>
+              <input class="seade-inp mono" id="s-emailjs_service" value="${esc(s.emailjs_service||'')}" oninput="seadeMuutus()">
+            </div>
+            <div class="seade-rida">
+              <div class="seade-lbl">Template ID</div>
+              <input class="seade-inp mono" id="s-emailjs_template" value="${esc(s.emailjs_template||'')}" oninput="seadeMuutus()">
+            </div>
+            <div class="seade-rida">
+              <div>
+                <div class="seade-lbl">Public Key</div>
+                <div class="seade-kirj">${s.emailjs_key ? '<span class="olek-badge olek-ok">✓</span>' : '<span class="olek-badge olek-tühi">puudub</span>'}</div>
+              </div>
+              <input class="seade-inp mono" type="password" id="s-emailjs_key" value="${esc(s.emailjs_key||'')}" oninput="seadeMuutus()">
+            </div>
+          </div>
+        </div>
+
+        <div class="sektsioon">
+          <div class="sektsioon-pealkiri">Süsteemi info</div>
+          <div class="seaded-kaart">
+            <div class="seade-rida"><div class="seade-lbl">Tarnija ID</div><span style="font-family:var(--mono);font-size:11px;color:var(--text3)">${TID}</span></div>
+            <div class="seade-rida"><div class="seade-lbl">Versioon</div><span style="font-family:var(--mono);color:var(--text3)">${VER}</span></div>
+            <div class="seade-rida"><div class="seade-lbl">Supabase</div><span style="color:var(--green);font-size:12px">● ühendatud</span></div>
+          </div>
+        </div>
+
+        <div class="ver">OrderHub ${VER} · ${esc(s.firma_nimi||'')}</div>
+      </div>`;
+
+    document.getElementById('salv-riba')?.classList.remove('naitab');
+  }
+
+  window.seadeMuutus = function() {
+    document.getElementById('salv-riba')?.classList.add('naitab');
+  };
+
+  window.mvEemalda = function(mv) {
+    S.makseviisid = S.makseviisid.filter(m => m !== mv);
+    document.getElementById('mv-' + mv)?.remove();
+    seadeMuutus();
+  };
+
+  window.mvLisa = function() {
+    const inp = document.getElementById('mv-uus');
+    const v = inp?.value.trim();
+    if (!v || S.makseviisid.includes(v)) { inp?.focus(); return; }
+    S.makseviisid.push(v);
+    const wrap = document.getElementById('mv-wrap');
+    if (wrap) {
+      const tag = document.createElement('div');
+      tag.className = 'mv-tag'; tag.id = 'mv-' + v;
+      tag.innerHTML = `${esc(v)}<button class="mv-x" onclick="mvEemalda('${esc(v)}')" title="Eemalda">×</button>`;
+      wrap.appendChild(tag);
+    }
+    if (inp) inp.value = '';
+    inp?.focus();
+    seadeMuutus();
+  };
+
+  window.salvestaKõikSeaded = async function() {
+    const btn = document.getElementById('salv-btn');
+    const olek = document.getElementById('salv-olek');
+    if (btn) btn.disabled = true;
+    if (olek) { olek.textContent = 'Salvestan...'; olek.className = 'salv-olek'; }
+
+    const uued = {
+      firma_nimi:       val('s-firma_nimi'),
+      firma_email:      val('s-firma_email'),
+      firma_telefon:    val('s-firma_telefon'),
+      firma_aadress:    val('s-firma_aadress'),
+      valuuta:          val('s-valuuta') || '€',
+      makseviisid:      S.makseviisid.join(','),
+      admin_parool:     val('s-admin_parool'),
+      claude_api_key:   val('s-claude_api_key'),
+      emailjs_service:  val('s-emailjs_service'),
+      emailjs_template: val('s-emailjs_template'),
+      emailjs_key:      val('s-emailjs_key'),
+    };
+
+    try {
+      await salvestaSeaded(uued);
+      if (uued.admin_parool) {
+        try { sessionStorage.setItem('oh_auth', uued.admin_parool); } catch(e) {}
+      }
+      if (uued.firma_nimi) {
+        const el = document.getElementById('header-firma');
+        if (el) el.textContent = uued.firma_nimi;
+      }
+      if (olek) { olek.textContent = '✓ Salvestatud!'; olek.className = 'salv-olek ok'; }
+      setTimeout(() => {
+        if (olek) olek.textContent = '';
+        document.getElementById('salv-riba')?.classList.remove('naitab');
+      }, 2500);
+      toast('Seaded salvestatud!');
+    } catch(e) {
+      if (olek) { olek.textContent = 'Viga: ' + e.message; olek.className = 'salv-olek err'; }
+    }
+    if (btn) btn.disabled = false;
+  };
+
+  // ─── Häälkäsk ─────────────────────────────────────────────────
+  let recog = null, salvestab = false, haaleRes = null;
+
+  function hNupp(salv, tootle) {
+    salvestab = salv;
+    const n = document.getElementById('haale-fab');
+    if (!n) return;
+    n.className = 'haale-fab' + (salv ? ' salvestab' : tootle ? ' tootleb' : '');
+    n.textContent = salv ? '⏹' : tootle ? '⏳' : '🎤';
+  }
+
+  function hOlek(t) { const el = document.getElementById('h-olek'); if (el) el.textContent = t; }
+
+  window.haaleToggle = function() {
+    const p = document.getElementById('haale-paneel');
+    if (!p) return;
+    if (p.classList.contains('naitab')) { haaleSulge(); }
+    else { p.classList.add('naitab'); haaleAlusta(); }
+  };
+
+  function haaleAlusta() {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) { alert('Brauser ei toeta kõnetuvastust. Proovi Chrome\'i.'); return; }
+    if (!recog) {
+      recog = new SR();
+      recog.lang = 'et-EE';
+      recog.continuous = false;
+      recog.interimResults = true;
+      recog.onstart = () => { hOlek('Kuulan... räägi tellimus'); const el = document.getElementById('h-tekst'); if (el) el.textContent = ''; };
+      recog.onresult = (e) => {
+        let t = '';
+        for (let i = e.resultIndex; i < e.results.length; i++) t += e.results[i][0].transcript;
+        const el = document.getElementById('h-tekst'); if (el) el.textContent = t;
+        if (e.results[e.results.length-1].isFinal) parsiHääl(t);
+      };
+      recog.onerror = (e) => { hOlek('Viga: ' + e.error); hNupp(false,false); };
+      recog.onend = () => { if (salvestab) hNupp(false,true); };
+    }
+    haaleRes = null;
+    document.getElementById('h-tulemus')?.classList.remove('naitab');
+    document.getElementById('h-kinnita')?.classList.remove('naitab');
+    hNupp(true, false);
+    try { recog.start(); } catch(e) { recog = null; haaleAlusta(); }
+  }
+
+  window.haaleSulge = function() {
+    if (recog && salvestab) { try { recog.stop(); } catch(e) {} }
+    salvestab = false; hNupp(false,false);
+    document.getElementById('haale-paneel')?.classList.remove('naitab');
+    haaleRes = null;
+  };
+
+  async function parsiHääl(tekst) {
+    hNupp(false,true); hOlek('Analüüsin...');
+    const claudeKey = S.seaded.claude_api_key || '';
+    if (!claudeKey) { hOlek('Claude API võti puudub — lisa seadetes'); hNupp(false,false); return; }
+
+    const toodetNimekiri = S.tooted.map(t => t.nimi + (t.suurused?.length ? ' (' + t.suurused.join('/') + ')' : '') + (t.hind ? ' ' + t.hind + (S.seaded.valuuta||'€') : '')).join(', ');
+
+    try {
+      const resp = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': claudeKey,
+          'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-client-side-allow-browser': 'true'
+        },
+        body: JSON.stringify({
+          model: 'claude-haiku-4-5-20251001',
+          max_tokens: 400,
+          messages: [{ role: 'user', content: `Parsi eestikeelne tellimus JSON-iks. Tooted: ${tootetNimekiri||'rukkijahu, nisujahu, kaerahelbed'}.\n\nTekst: "${tekst}"\n\nVasta AINULT JSON:\n{"klient_nimi":"...","tooted":[{"nimi":"...","suurus":null,"kogus":1}],"makseviis":"Arve","markus":null}` }]
+        })
+      });
+      const data = await resp.json();
+      const json = JSON.parse(data.content[0].text.replace(/\`\`\`json|\`\`\`/g,'').trim());
+      haaleRes = json;
+
+      const set = (id, html) => { const el = document.getElementById(id); if (el) el.innerHTML = html; };
+      set('hr-klient', `<strong>Klient:</strong> ${esc(json.klient_nimi||'—')}`);
+      set('hr-tooted', `<strong>Tooted:</strong> ${(json.tooted||[]).map(t=>esc(t.nimi)+(t.suurus?' '+esc(t.suurus):'')+' ×'+t.kogus).join(', ')}`);
+      set('hr-mv', `<strong>Makseviis:</strong> ${esc(json.makseviis||'Arve')}`);
+      set('hr-markus', json.markus ? `<strong>Märkus:</strong> ${esc(json.markus)}` : '');
+
+      document.getElementById('h-tulemus')?.classList.add('naitab');
+      document.getElementById('h-kinnita')?.classList.add('naitab');
+      hNupp(false,false); hOlek('Kontrolli ja kinnita');
+    } catch(e) {
+      hOlek('Viga: ' + e.message); hNupp(false,false);
+    }
+  }
+
+  window.haaleKinnita = async function() {
+    if (!haaleRes) return;
+    hOlek('Salvestan...');
+    document.getElementById('h-kinnita').disabled = true;
+    try {
+      const tellResp = await sb('tellimused', {
+        method: 'POST',
+        body: JSON.stringify({
+          tarnija_id: TID, klient_nimi: haaleRes.klient_nimi || 'Tundmatu',
+          kanal: 'hääl', staatus: 'uus',
+          makseviis: haaleRes.makseviis || 'Arve',
+          markus: haaleRes.markus || null,
+          loodud: new Date().toISOString()
+        })
+      });
+      const tellimusId = tellResp[0].id;
+
+      const read = (haaleRes.tooted||[]).map(t => {
+        const dbT = S.tooted.find(d => d.nimi.toLowerCase().includes(t.nimi.toLowerCase()));
+        return { tellimus_id: tellimusId, toode_id: dbT?.id||null, kogus: t.kogus||1, suurus: t.suurus||null, uhikhind: dbT?.hind||null };
+      }).filter(r => r.toode_id);
+
+      if (read.length > 0) {
+        await sb('tellimus_read', { method: 'POST', prefer: 'return=minimal', body: JSON.stringify(read) });
+      }
+
+      hOlek('✓ Salvestatud!');
+      toast('Häältellimus lisatud!');
+      setTimeout(() => { haaleSulge(); laeKõik(); }, 1000);
+    } catch(e) {
+      hOlek('Viga: ' + e.message);
+      document.getElementById('h-kinnita').disabled = false;
+    }
+  };
+
+  // ─── Init ─────────────────────────────────────────────────────
+  async function init() {
+    document.getElementById('app').innerHTML = '<div class="laadimine"><div class="spinner"></div> Laen...</div>';
+    await laeSeaded();
+    try {
+      const sess = sessionStorage.getItem('oh_auth');
+      if (sess && sess === (S.seaded.admin_parool || 'tammejuure2024')) {
+        S.autentitud = true;
+        renderdaPõhi();
+        laeKõik();
+        return;
+      }
+    } catch(e) {}
+    rend();
+  }
+
+  // Automaatne uuendus iga 60s
+  setInterval(() => { if (S.autentitud && S.vaade === 'tellimused') laeKõik(); }, 60000);
+
+  init();
+})();
+</script>
+</body>
+</html>
