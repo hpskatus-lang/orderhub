@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="et">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OrderHub</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;600&display=swap');
+
+  :root {
+    --bg: #f5f5f0;
+    --surface: #ffffff;
+    --border: #ddddd6;
+    --green: #4a7c1f;
+    --green-dim: #6b9e33;
+    --text: #1a1c17;
+    --muted: #8a8e7d;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0e0f0c;
+      --surface: #181a16;
+      --border: #2a2d26;
+      --green: #a8c957;
+      --green-dim: #6b8a2a;
+      --text: #e8ead4;
+      --muted: #6b6f5e;
+    }
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem 1.5rem;
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* taustaruudustik */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(var(--border) 1px, transparent 1px),
+      linear-gradient(90deg, var(--border) 1px, transparent 1px);
+    background-size: 40px 40px;
+    opacity: 0.4;
+    pointer-events: none;
+  }
+
+  /* rohelised laigud */
+  body::after {
+    content: '';
+    position: fixed;
+    width: 500px;
+    height: 500px;
+    background: radial-gradient(circle, rgba(168,201,87,0.08) 0%, transparent 70%);
+    top: -100px;
+    right: -100px;
+    pointer-events: none;
+  }
+
+  .wrap {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 420px;
+    animation: fadeUp 0.6s ease both;
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(24px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .logo {
+    font-family: 'DM Mono', monospace;
+    font-size: 1.1rem;
+    color: var(--green);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    margin-bottom: 0.4rem;
+  }
+
+  .tagline {
+    font-size: 0.85rem;
+    color: var(--muted);
+    margin-bottom: 3rem;
+    font-weight: 300;
+  }
+
+  .cards {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  a.card {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1.1rem 1.25rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    text-decoration: none;
+    color: var(--text);
+    transition: border-color 0.2s, background 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  a.card::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 3px;
+    background: var(--green-dim);
+    transition: background 0.2s;
+  }
+
+  a.card:hover {
+    border-color: var(--green-dim);
+    background: var(--bg);
+  }
+
+  a.card:hover::before {
+    background: var(--green);
+  }
+
+  .card-icon {
+    font-size: 1.4rem;
+    width: 2rem;
+    text-align: center;
+    flex-shrink: 0;
+  }
+
+  .card-text {}
+
+  .card-title {
+    font-size: 0.95rem;
+    font-weight: 600;
+    margin-bottom: 0.15rem;
+  }
+
+  .card-desc {
+    font-size: 0.78rem;
+    color: var(--muted);
+    font-weight: 300;
+  }
+
+  .card-arrow {
+    margin-left: auto;
+    color: var(--muted);
+    font-size: 1rem;
+    transition: color 0.2s, transform 0.2s;
+  }
+
+  a.card:hover .card-arrow {
+    color: var(--green);
+    transform: translateX(3px);
+  }
+
+  .footer {
+    margin-top: 3rem;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--muted);
+    text-align: center;
+    letter-spacing: 0.05em;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="logo">OrderHub</div>
+  <div class="tagline">Ükski tellimus ei lähe kaduma</div>
+
+  <div class="cards">
+    <a class="card" href="orderhub-tellimus.html">
+      <span class="card-icon">🛒</span>
+      <div class="card-text">
+        <div class="card-title">Esita tellimus</div>
+        <div class="card-desc">Kliendi tellimisleht</div>
+      </div>
+      <span class="card-arrow">→</span>
+    </a>
+
+    <a class="card" href="orderhub-admin.html">
+      <span class="card-icon">📦</span>
+      <div class="card-text">
+        <div class="card-title">Tarnija admin</div>
+        <div class="card-desc">Tellimused, tooted, seaded</div>
+      </div>
+      <span class="card-arrow">→</span>
+    </a>
+
+    <a class="card" href="orderhub-haal.html">
+      <span class="card-icon">🎤</span>
+      <div class="card-text">
+        <div class="card-title">Häältellimus</div>
+        <div class="card-desc">Räägi tellimus sisse</div>
+      </div>
+      <span class="card-arrow">→</span>
+    </a>
+  </div>
+
+  <div class="footer">v1.1 · Tammejuure Mahetalu</div>
+</div>
+</body>
+</html>
