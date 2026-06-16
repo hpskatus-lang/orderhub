@@ -475,7 +475,7 @@ window.OHConfig = {
   function renderdaStats(uued, tana, kanalid) {
     const tanaKaive = S.tellimused
       .filter(t => { const d=new Date(t.loodud),n=new Date(); return d.getFullYear()===n.getFullYear()&&d.getMonth()===n.getMonth()&&d.getDate()===n.getDate(); })
-      .reduce((s,t) => s + (parseFloat(t.kogusumma||0)||0), 0);
+      .reduce((s,t) => { const read=t.tellimus_read||[]; return s+read.reduce((rs,r)=>rs+(parseFloat(r.uhikhind||0)*parseFloat(r.kogus||0)),0); }, 0);
     return `<div class="stats">
       <div class="stat"><div class="stat-n green">${uued}</div><div class="stat-l">Uut tellimust</div></div>
       <div class="stat"><div class="stat-n">${tana}</div><div class="stat-l">Kokku täna</div></div>
