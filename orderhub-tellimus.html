@@ -259,7 +259,8 @@
     await sb('tellimus_read', {
       method: 'POST',
       body: JSON.stringify(d.read.map(r => ({
-        tellimus_id: id, toode_id: r.toodeId,
+        tellimus_id: id, toode_id: r.toodeId || null,
+        toode_nimi: r.toodeNimi || null,
         kogus: r.kogus, suurus: r.suurus || null, uhikhind: r.uhikhind || null,
       }))),
     });
@@ -271,7 +272,8 @@
     await sb('tellimus_read', {
       method: 'POST',
       body: JSON.stringify(read.map(r => ({
-        tellimus_id: tellimusId, toode_id: r.toodeId,
+        tellimus_id: tellimusId, toode_id: r.toodeId || null,
+        toode_nimi: r.toodeNimi || null,
         kogus: r.kogus, suurus: r.suurus || null, uhikhind: r.uhikhind || null,
       }))),
     });
@@ -285,7 +287,7 @@
     for (const u of uued) {
       const olemas = komb.find(v => v.toode_id === u.toodeId && v.suurus === (u.suurus || null));
       if (olemas) olemas.kogus += u.kogus;
-      else komb.push({ tellimus_id: tellimusId, toode_id: u.toodeId, kogus: u.kogus, suurus: u.suurus || null, uhikhind: u.uhikhind || null });
+      else komb.push({ tellimus_id: tellimusId, toode_id: u.toodeId || null, toode_nimi: u.toodeNimi || null, kogus: u.kogus, suurus: u.suurus || null, uhikhind: u.uhikhind || null });
     }
     await sb(`tellimus_read?tellimus_id=eq.${tellimusId}`, { method: 'DELETE', prefer: '' });
     await sb('tellimus_read', { method: 'POST', body: JSON.stringify(komb) });
