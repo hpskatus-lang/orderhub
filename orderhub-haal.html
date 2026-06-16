@@ -175,6 +175,7 @@ window.HaaleConfig = {
   var SB_KEY = cfg.supabaseKey;
   var TID    = cfg.tarnijaId;
   var CLAUDE = cfg.claudeApiKey || '';  // uuendatakse Supabase seadetest
+  var GROQ   = '';                          // Groq Whisper API võti, laetakse seadetest
   var VAL    = cfg.valuuta || '€';
   var VER    = cfg.versioon || 'v1.1';
 
@@ -201,6 +202,7 @@ window.HaaleConfig = {
 
       // Rakenda seaded
       if (seadedMap.claude_api_key) CLAUDE = seadedMap.claude_api_key;
+      if (seadedMap.groq_api_key) GROQ = seadedMap.groq_api_key;
       if (seadedMap.valuuta) VAL = seadedMap.valuuta;
       if (seadedMap.firma_nimi) {
         document.getElementById('footer').textContent = 'OrderHub · ' + seadedMap.firma_nimi;
@@ -343,83 +345,108 @@ window.HaaleConfig = {
   };
 
   // ─── Kõnetuvastus ─────────────────────────────────────────────
+  // ─── Groq Whisper salvestus ──────────────────────────────────
+  var mediaRec = null;
+  var audioChunks = [];
+
   function startRec() {
-    var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SR) {
-      var warn = document.getElementById('warn');
-      warn.innerHTML = '⚠ Kõnetuvastus töötab ainult <strong>Chrome</strong> brauseris. Ava see leht Chrome\'is!';
-      warn.style.display = 'block';
-      return;
-    }
     document.getElementById('warn').style.display = 'none';
     document.getElementById('hint').style.display = 'none';
     document.getElementById('transcript').style.display = 'none';
     document.getElementById('result-card').style.display = 'none';
 
-    recog = new SR();
-    recog.lang = 'et-EE';
-    recog.continuous = false;
-    recog.interimResults = true;
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      var warn = document.getElementById('warn');
+      warn.innerHTML = '⚠ Mikrofon ei ole kättesaadav. Kontrolli brauseri lube.';
+      warn.style.display = 'block';
+      return;
+    }
 
-    recog.onstart = function() { setPhase('rec'); };
+    navigator.mediaDevices.getUserMedia({ audio: true }).then(function(stream) {
+      audioChunks = [];
+      mediaRec = new MediaRecorder(stream, { mimeType: 'audio/webm' });
 
-    recog.onresult = function(e) {
-      var t = '';
-      for (var i = e.resultIndex; i < e.results.length; i++) {
-        t += e.results[i][0].transcript;
-      }
-      var tr = document.getElementById('transcript');
-      tr.textContent = '"' + t + '"';
-      tr.style.display = 'block';
+      mediaRec.ondataavailable = function(e) {
+        if (e.data.size > 0) audioChunks.push(e.data);
+      };
 
-      if (e.results[e.results.length-1].isFinal) {
-        recog.stop();
+      mediaRec.onstop = function() {
+        stream.getTracks().forEach(function(t) { t.stop(); });
         setPhase('proc');
-        clearTimeout(recTimer);
+        var blob = new Blob(audioChunks, { type: 'audio/webm' });
+        transkribeeriWhisper(blob);
+      };
 
-        var doParsi = CLAUDE && CLAUDE !== 'LISA_OMA_CLAUDE_API_VOTI'
-          ? parsiClaudega(t)
-          : Promise.resolve(parsiFallback(t));
+      mediaRec.start();
+      setPhase('rec');
 
-        doParsi.then(function(result) {
-          curResult = result;
-          naitaTulemus(result);
-          setPhase('result');
-        }).catch(function(err) {
-          console.warn('Parsimine ebaõnnestus, kasutan fallback:', err.message);
-          var result = parsiFallback(t);
-          curResult = result;
-          naitaTulemus(result);
-          setPhase('result');
-        });
-      }
-    };
+      // Max 30 sekundit
+      recTimer = setTimeout(function() { stopRec(); }, 30000);
 
-    recog.onerror = function(e) {
-      setPhase('idle');
-      var tr = document.getElementById('transcript');
-      if (e.error === 'no-speech') {
-        tr.textContent = 'Kõnet ei tuvastatud. Proovi uuesti.';
-      } else {
-        tr.textContent = 'Viga: ' + e.error;
-      }
-      tr.style.display = 'block';
-    };
-
-    recog.onend = function() {
-      if (phase === 'rec') setPhase('idle');
-    };
-
-    recog.start();
-    recTimer = setTimeout(function() {
-      try { recog.stop(); } catch(e) {}
-    }, 10000);
+    }).catch(function(err) {
+      var warn = document.getElementById('warn');
+      warn.innerHTML = '⚠ Mikrofoni viga: ' + err.message;
+      warn.style.display = 'block';
+    });
   }
 
   function stopRec() {
     clearTimeout(recTimer);
-    try { recog.stop(); } catch(e) {}
-    setPhase('proc');
+    if (mediaRec && mediaRec.state !== 'inactive') {
+      mediaRec.stop();
+    }
+  }
+
+  async function transkribeeriWhisper(blob) {
+    var trEl = document.getElementById('transcript');
+    try {
+      if (!GROQ) throw new Error('Groq API võti puudub. Lisa seadetesse groq_api_key.');
+
+      var formData = new FormData();
+      formData.append('file', blob, 'audio.webm');
+      formData.append('model', 'whisper-large-v3');
+      formData.append('language', 'et');
+      formData.append('response_format', 'text');
+
+      var resp = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + GROQ },
+        body: formData
+      });
+
+      if (!resp.ok) throw new Error('Groq viga: ' + resp.status);
+      var tekst = (await resp.text()).trim();
+
+      trEl.textContent = '"' + tekst + '"';
+      trEl.style.display = 'block';
+
+      if (!tekst) { setPhase('idle'); return; }
+
+      // Parsi Claude'iga või fallback
+      var doParsi = CLAUDE && CLAUDE !== 'LISA_OMA_CLAUDE_API_VOTI'
+        ? parsiClaudega(tekst)
+        : Promise.resolve(parsiFallback(tekst));
+
+      doParsi.then(function(result) {
+        // Lisa häältekst märkusesse
+        if (!result.markus) result.markus = tekst;
+        curResult = result;
+        naitaTulemus(result);
+        setPhase('result');
+      }).catch(function(err) {
+        console.warn('Parsimine ebaõnnestus:', err.message);
+        var result = parsiFallback(tekst);
+        result.markus = tekst;
+        curResult = result;
+        naitaTulemus(result);
+        setPhase('result');
+      });
+
+    } catch(e) {
+      trEl.textContent = 'Viga: ' + e.message;
+      trEl.style.display = 'block';
+      setPhase('idle');
+    }
   }
 
   // ─── Tulemuse kuvamine ────────────────────────────────────────
@@ -487,6 +514,7 @@ window.HaaleConfig = {
         return {
           tellimus_id: tellimusId,
           toode_id:    dbT ? dbT.id : null,
+          toode_nimi:  dbT ? dbT.nimi : t.nimi,
           kogus:       t.kogus || 1,
           suurus:      t.suurus || null,
           uhikhind:    dbT ? dbT.hind : null
