@@ -1,0 +1,914 @@
+<!DOCTYPE html>
+<html lang="et">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Esita tellimus — Firma Nimi</title>
+  <style>
+    /* ─── Lehe põhistiil ─────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #f6f6f4;
+      color: #1a1a1a;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      min-height: 100vh;
+    }
+
+    /* ─── Päis ───────────────────────────────────────────────── */
+    .leht-päis {
+      background: #fff;
+      border-bottom: 1px solid #ebebeb;
+      padding: 0 24px;
+      height: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .logo {
+      font-size: 17px;
+      font-weight: 700;
+      color: #111;
+      letter-spacing: -0.3px;
+    }
+
+    .logo span {
+      color: #2563eb;
+    }
+
+    .päis-parem {
+      font-size: 13px;
+      color: #999;
+    }
+
+    /* ─── Kangelasblokk ──────────────────────────────────────── */
+    .hero {
+      background: #fff;
+      border-bottom: 1px solid #ebebeb;
+      padding: 36px 24px 32px;
+      text-align: center;
+    }
+
+    .hero h1 {
+      font-size: 28px;
+      font-weight: 800;
+      color: #111;
+      margin-bottom: 10px;
+      letter-spacing: -0.5px;
+    }
+
+    .hero p {
+      font-size: 16px;
+      color: #666;
+      max-width: 420px;
+      margin: 0 auto;
+      line-height: 1.6;
+    }
+
+    /* ─── Sisu ───────────────────────────────────────────────── */
+    .sisu {
+      padding: 32px 16px;
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    /* ─── Jalus ──────────────────────────────────────────────── */
+    .leht-jalus {
+      background: #fff;
+      border-top: 1px solid #ebebeb;
+      padding: 20px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 40px;
+    }
+
+    .jalus-kontakt {
+      font-size: 13px;
+      color: #888;
+    }
+
+    .jalus-kontakt a {
+      color: #2563eb;
+      text-decoration: none;
+    }
+
+    .jalus-ver {
+      font-size: 12px;
+      color: #bbb;
+      background: #f5f5f5;
+      padding: 4px 10px;
+      border-radius: 6px;
+    }
+
+    /* ─── Mobiiliparandused ──────────────────────────────────── */
+    @media (max-width: 480px) {
+      .hero { padding: 24px 16px 20px; }
+      .hero h1 { font-size: 22px; }
+      .leht-jalus { flex-direction: column; align-items: flex-start; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ─── PÄIS ────────────────────────────────────────────────── -->
+  <header class="leht-päis">
+    <!-- Asenda "FIRMA NIMI" oma ettevõtte nimega -->
+    <div class="logo">FIRMA <span>NIMI</span></div>
+    <div class="päis-parem">Tellimisportaal</div>
+  </header>
+
+  <!-- ─── KANGELASBLOKK ────────────────────────────────────────── -->
+  <section class="hero">
+    <h1>Esita tellimus</h1>
+    <p>Täitke allolev vorm. Kinnitame teie tellimuse esimesel võimalusel.</p>
+  </section>
+
+  <!-- ─── SISU — PLUGIN RENDERDATAKSE SIIA ────────────────────── -->
+  <main class="sisu">
+    <!--
+      ============================================================
+      KONFIGURATSIOON — TÄIDA OMA ANDMETEGA
+      ============================================================
+      Asenda kõik ASENDA_... väärtused oma tegelike andmetega.
+
+      supabaseUrl   — Supabase projekti URL
+                      Leiab: https://supabase.com → Project Settings → API
+      supabaseKey   — Supabase anon/public võti
+                      Leiab: sama koht → anon key
+      tarnijaId     — UUID tarnijate tabelist
+                      SELECT id FROM tarnijad WHERE nimi = 'Sinu Firma'
+      tarnijaEmail  — Tarnija kontaktmeil (kuvatakse vea korral)
+      tarnijanimi   — Firma nimi (kuvatakse pluginas ja meilis)
+
+      emailjsServiceId  — EmailJS → Email Services → Service ID
+      emailjsTemplateId — EmailJS → Email Templates → Template ID
+      emailjsPublicKey  — EmailJS → Account → Public Key
+
+      valuuta       — Valuuta sümbol (nt '€', '$', 'kr')
+      makseviisid   — Saadaolevad makseviisid (massiiv)
+      parool        — Jäta tühjaks avaliku lehe jaoks,
+                      sisesta string parooliga kaitstud juurdepääsuks
+      versioon      — Plugina versioon (kuvatakse jaluses)
+      ============================================================
+    -->
+    <script>
+      window.TellimisPluginConfig = {
+        supabaseUrl:        'https://dewnjlvwasxludspbpfm.supabase.co',
+        supabaseKey:        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRld25qbHZ3YXN4bHVkc3BicGZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgzMjIyMDMsImV4cCI6MjA5Mzg5ODIwM30.HJl5w_HqAWn1YVczBo96eobxJzDohatsVY8yqGK2QJs',
+        // tarnijaId, tarnijanimi, tarnijaEmail laetakse URL ?t= parameetrist automaatselt
+        // Näide: orderhub-tellimus.html?t=tammejuure
+        // Jäta tühjaks — laetakse Supabase'ist slug järgi
+
+        emailjsServiceId:   'service_s9gw35u',
+        emailjsTemplateId:  'template_j6gzh9y',
+        emailjsPublicKey:   'fjMBcW97ZRxai0v0P',
+
+        valuuta:            '€',
+        makseviisid:        ['Arve', 'Pangaülekanne', 'Sularaha'],
+
+        parool:             '',   /* tühi = avalik leht */
+        versioon:           'v1.1'
+      };
+    </script>
+
+    <!-- Plugin laetakse siit -->
+    <script>
+/**
+ * Tellimisplugina v1.0
+ * Üks JS fail — lisatakse igale lehele ühe script tagiga
+ * Kõik stiilid on sees, ei vaja eraldi CSS faili
+ */
+
+(function () {
+  'use strict';
+
+  const cfg = window.TellimisPluginConfig || {};
+  const SUPABASE_URL  = cfg.supabaseUrl  || '';
+  const SUPABASE_KEY  = cfg.supabaseKey  || '';
+
+  // Lae tootja andmed URL ?t= parameetrist (slug)
+  // Näide: ?t=tammejuure või ?t=hundimaitsed
+  let TARNIJA_ID    = cfg.tarnijaId    || '';
+  let TARNIJA_NIMI  = cfg.tarnijanimi  || '';
+  let TARNIJA_EMAIL = cfg.tarnijaEmail || '';
+
+  async function laeTootjaSlugist() {
+    const slug = new URLSearchParams(window.location.search).get('t');
+    if (!slug) return; // kasuta cfg väärtusi kui ?t= puudub
+    try {
+      const r = await fetch(\`\${SUPABASE_URL}/rest/v1/tarnijad?slug=eq.\${encodeURIComponent(slug)}&select=id,nimi,email\`, {
+        headers: { 'apikey': SUPABASE_KEY, 'Authorization': \`Bearer \${SUPABASE_KEY}\` }
+      });
+      const data = await r.json();
+      if (data && data[0]) {
+        TARNIJA_ID    = data[0].id;
+        TARNIJA_NIMI  = data[0].nimi;
+        TARNIJA_EMAIL = data[0].email || '';
+      }
+    } catch(e) { console.warn('Tootja laadimine ebaõnnestus:', e.message); }
+  }
+  const EJS_SERVICE   = cfg.emailjsServiceId  || '';
+  const EJS_TEMPLATE  = cfg.emailjsTemplateId || '';
+  const EJS_KEY       = cfg.emailjsPublicKey  || '';
+  const VALUUTA       = cfg.valuuta    || '€';
+  const MAKSEVIISID   = cfg.makseviisid || ['Arve', 'Pangaülekanne', 'Sularaha'];
+  const PAROOL        = cfg.parool     || '';
+  const VERSIOON      = cfg.versioon   || 'v1.0';
+  const LS_KEY        = 'tellimis_plugin_sessioon_v1';
+
+  // ─── Olek ─────────────────────────────────────────────────────────────────
+  let S = {
+    samm: PAROOL ? 0 : 1,
+    klient: { nimi: '', email: '', telefon: '' },
+    tooted: [],
+    korv: {},
+    makseviis: MAKSEVIISID[0] || '',
+    markus: '',
+    topelt: null,
+    laadimine: false,
+    viga: '',
+    tellimusId: null,
+    meilViga: false,
+  };
+
+  // ─── Supabase ──────────────────────────────────────────────────────────────
+  async function sb(endpoint, opts = {}) {
+    if (!SUPABASE_URL || !SUPABASE_KEY) throw new Error('Supabase konfiguratsioon puudub');
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/${endpoint}`, {
+      ...opts,
+      headers: {
+        'apikey': SUPABASE_KEY,
+        'Authorization': `Bearer ${SUPABASE_KEY}`,
+        'Content-Type': 'application/json',
+        'Prefer': opts.prefer !== undefined ? opts.prefer : 'return=representation',
+        ...(opts.headers || {}),
+      },
+    });
+    if (!r.ok) throw new Error(`SB ${r.status}: ${await r.text()}`);
+    const t = await r.text();
+    return t ? JSON.parse(t) : null;
+  }
+
+  async function sbLaeTooted() {
+    return sb(`tooted?tarnija_id=eq.${TARNIJA_ID}&select=*&order=nimi.asc`);
+  }
+
+  async function sbSalvesta(d) {
+    const tell = await sb('tellimused', {
+      method: 'POST',
+      body: JSON.stringify({
+        tarnija_id: TARNIJA_ID,
+        klient_nimi: d.nimi,
+        klient_email: d.email,
+        kanal: 'plugin',
+        staatus: 'uus',
+        makseviis: d.makseviis,
+        markus: d.markus,
+        loodud: new Date().toISOString(),
+      }),
+    });
+    const id = tell[0].id;
+    await sb('tellimus_read', {
+      method: 'POST',
+      body: JSON.stringify(d.read.map(r => ({
+        tellimus_id: id, toode_id: r.toodeId || null,
+        toode_nimi: r.toodeNimi || null,
+        kogus: r.kogus, suurus: r.suurus || null, uhikhind: r.uhikhind || null,
+      }))),
+    });
+    return id;
+  }
+
+  async function sbAsenda(tellimusId, read, markus) {
+    await sb(`tellimus_read?tellimus_id=eq.${tellimusId}`, { method: 'DELETE', prefer: '' });
+    await sb('tellimus_read', {
+      method: 'POST',
+      body: JSON.stringify(read.map(r => ({
+        tellimus_id: tellimusId, toode_id: r.toodeId || null,
+        toode_nimi: r.toodeNimi || null,
+        kogus: r.kogus, suurus: r.suurus || null, uhikhind: r.uhikhind || null,
+      }))),
+    });
+    if (markus) await sb(`tellimused?id=eq.${tellimusId}`, { method: 'PATCH', body: JSON.stringify({ markus }) });
+    return tellimusId;
+  }
+
+  async function sbLisa(tellimusId, uued, markus) {
+    const vanad = await sb(`tellimus_read?tellimus_id=eq.${tellimusId}&select=*`) || [];
+    const komb = [...vanad];
+    for (const u of uued) {
+      const olemas = komb.find(v => v.toode_id === u.toodeId && v.suurus === (u.suurus || null));
+      if (olemas) olemas.kogus += u.kogus;
+      else komb.push({ tellimus_id: tellimusId, toode_id: u.toodeId || null, toode_nimi: u.toodeNimi || null, kogus: u.kogus, suurus: u.suurus || null, uhikhind: u.uhikhind || null });
+    }
+    await sb(`tellimus_read?tellimus_id=eq.${tellimusId}`, { method: 'DELETE', prefer: '' });
+    await sb('tellimus_read', { method: 'POST', body: JSON.stringify(komb) });
+    if (markus) await sb(`tellimused?id=eq.${tellimusId}`, { method: 'PATCH', body: JSON.stringify({ markus }) });
+    return tellimusId;
+  }
+
+  async function sbTopelt(nimi) {
+    const piir = new Date(Date.now() - 4 * 3600000).toISOString();
+    const r = await sb(`tellimused?tarnija_id=eq.${TARNIJA_ID}&klient_nimi=eq.${encodeURIComponent(nimi)}&loodud=gte.${piir}&select=*&order=loodud.desc&limit=1`);
+    return r && r.length > 0 ? r[0] : null;
+  }
+
+  // ─── EmailJS ───────────────────────────────────────────────────────────────
+  function saadaMeil(params) {
+    return new Promise((ok, fail) => {
+      if (!window.emailjs) { fail(new Error('EmailJS puudub')); return; }
+      emailjs.init(EJS_KEY);
+      emailjs.send(EJS_SERVICE, EJS_TEMPLATE, params).then(ok).catch(fail);
+    });
+  }
+
+  // ─── Abid ─────────────────────────────────────────────────────────────────
+  function genNr() {
+    const c = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let n = 'SL-';
+    for (let i = 0; i < 8; i++) n += c[Math.floor(Math.random() * c.length)];
+    return n;
+  }
+
+  function fmt(h) {
+    if (h === null || h === undefined || h === '') return '';
+    return parseFloat(h).toFixed(2) + VALUUTA;
+  }
+
+  function summa() {
+    return Object.values(S.korv).reduce((s, v) => s + (v.uhikhind ? v.kogus * parseFloat(v.uhikhind) : 0), 0);
+  }
+
+  function korvTuhi() {
+    return Object.values(S.korv).every(v => !v.kogus || v.kogus === 0);
+  }
+
+  function read() {
+    return Object.entries(S.korv)
+      .filter(([, v]) => v.kogus > 0)
+      .map(([key, v]) => {
+        // Võti on "toodeId:suurus" või lihtsalt "toodeId"
+        const parts = key.split(':');
+        const toodeId = parts[0];
+        const suurus = parts[1] || v.suurus || null;
+        const t = S.tooted.find(x => String(x.id) === String(toodeId));
+        return { toodeId: parseInt(toodeId) || toodeId, toodeNimi: t ? t.nimi : toodeId, kogus: v.kogus, suurus: suurus, uhikhind: v.uhikhind || null };
+      });
+  }
+
+  function laeKlientLS() {
+    try { const s = localStorage.getItem(LS_KEY); return s ? JSON.parse(s) : null; } catch { return null; }
+  }
+
+  function salvestaKlientLS(k) {
+    try { localStorage.setItem(LS_KEY, JSON.stringify(k)); } catch {}
+  }
+
+  function esc(s) {
+    return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function el(tag, cls) {
+    const e = document.createElement(tag);
+    if (cls) e.className = cls;
+    return e;
+  }
+
+  // Demo tooted kui Supabase pole seadistatud
+  const DEMO_TOOTED = [
+    { id: 't1', nimi: 'Toode A', suurused: ['S', 'M', 'L'], uhik: 'tk', hind_kg: 25.00 },
+    { id: 't2', nimi: 'Toode B', suurused: [], uhik: 'kg', hind_kg: 12.50 },
+    { id: 't3', nimi: 'Teenus C', suurused: ['Standard', 'Premium'], uhik: 'tk', hind_kg: 80.00 },
+    { id: 't4', nimi: 'Toode D', suurused: ['Väike', 'Suur'], uhik: 'tk', hind_kg: null },
+  ];
+
+  function onDemoRezim() {
+    return !SUPABASE_URL || !SUPABASE_KEY || !TARNIJA_ID ||
+      TARNIJA_ID === 'ASENDA_OMA_TARNIJA_ID' || SUPABASE_URL === 'ASENDA_OMA_URL';
+  }
+
+  // ─── CSS ──────────────────────────────────────────────────────────────────
+  function injectCSS() {
+    if (document.getElementById('tp-css')) return;
+    const s = document.createElement('style');
+    s.id = 'tp-css';
+    s.textContent = `
+#tellimis-plugin,#tellimis-plugin *{box-sizing:border-box;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;-webkit-font-smoothing:antialiased;}
+#tellimis-plugin{max-width:520px;margin:0 auto;padding:0 0 48px;}
+
+.tp-sammud{display:flex;align-items:center;margin-bottom:28px;padding:0 2px;}
+.tp-s{display:flex;align-items:center;flex:1;}
+.tp-snr{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;border:2px solid #e2e2e2;color:#aaa;background:#fff;transition:all .2s;flex-shrink:0;}
+.tp-snr.ak{background:#2563eb;border-color:#2563eb;color:#fff;}
+.tp-snr.ok{background:#16a34a;border-color:#16a34a;color:#fff;}
+.tp-sjonn{flex:1;height:2px;background:#e2e2e2;transition:background .3s;margin:0 4px;}
+.tp-sjonn.ok{background:#16a34a;}
+
+.tp-kaart{background:#fff;border:1px solid #ebebeb;border-radius:14px;padding:24px;margin-bottom:14px;box-shadow:0 1px 4px rgba(0,0,0,.04);}
+.tp-h1{font-size:20px;font-weight:700;color:#111;margin:0 0 4px;}
+.tp-h2{font-size:14px;color:#777;margin:0 0 20px;line-height:1.5;}
+.tp-lbl{display:block;font-size:13px;font-weight:500;color:#444;margin-bottom:6px;}
+.tp-väli{margin-bottom:16px;}
+.tp-inp{width:100%;padding:12px 14px;border:1.5px solid #e2e2e2;border-radius:9px;font-size:16px;color:#111;background:#fafafa;outline:none;transition:border-color .15s;-webkit-appearance:none;appearance:none;}
+.tp-inp:focus{border-color:#2563eb;background:#fff;}
+textarea.tp-inp{resize:vertical;min-height:82px;}
+
+.tp-btn{display:flex;align-items:center;justify-content:center;gap:8px;height:50px;padding:0 22px;border-radius:11px;font-size:16px;font-weight:600;cursor:pointer;border:none;transition:all .15s;width:100%;}
+.tp-btn-p{background:#2563eb;color:#fff;}
+.tp-btn-p:hover:not(:disabled){background:#1d4ed8;}
+.tp-btn-p:disabled{opacity:.45;cursor:not-allowed;}
+.tp-btn-s{background:#f4f4f4;color:#444;border:1px solid #e2e2e2;}
+.tp-btn-s:hover{background:#eaeaea;}
+.tp-btnrow{display:flex;gap:10px;}
+
+.tp-tooted{display:flex;flex-direction:column;gap:10px;margin-bottom:14px;}
+.tp-toode{border:1.5px solid #e8e8e8;border-radius:11px;padding:14px 16px;transition:border-color .15s,background .15s;background:#fff;}
+.tp-toode.sel{border-color:#2563eb;background:#eff6ff;}
+.tp-toode-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;}
+.tp-toode-nimi{font-size:15px;font-weight:600;color:#111;}
+.tp-toode-hind{font-size:13px;color:#666;margin-left:8px;white-space:nowrap;}
+.tp-szz{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;}
+.tp-sz{padding:5px 12px;border-radius:7px;border:1.5px solid #e2e2e2;font-size:13px;cursor:pointer;color:#555;background:#fff;transition:all .12s;}
+.tp-sz.sel{background:#2563eb;border-color:#2563eb;color:#fff;}
+.tp-qrow{display:flex;align-items:center;gap:12px;}
+.tp-qbtn{width:36px;height:36px;border-radius:8px;border:1.5px solid #e2e2e2;background:#fff;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#555;transition:all .12s;line-height:1;}
+.tp-qbtn:hover{border-color:#2563eb;color:#2563eb;}
+.tp-qarv{font-size:17px;font-weight:700;min-width:30px;text-align:center;color:#111;}
+.tp-qsum{font-size:13px;color:#2563eb;font-weight:600;margin-left:auto;}
+.tp-suurus-rida{display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-top:1px solid #f0f0f0;}
+.tp-suurus-rida:first-of-type{border-top:none;margin-top:4px;}
+.tp-suurus-nimi{font-size:13px;color:#555;min-width:48px;}
+
+.tp-korv{position:sticky;bottom:12px;background:#1a1a1a;border-radius:13px;padding:14px 18px;display:flex;align-items:center;justify-content:space-between;color:#fff;margin-top:12px;gap:12px;box-shadow:0 4px 20px rgba(0,0,0,.18);}
+.tp-korv-inf{font-size:14px;line-height:1.4;}
+.tp-korv-sum{font-size:18px;font-weight:700;}
+.tp-korv-btn{background:#2563eb;color:#fff;border:none;border-radius:9px;padding:10px 22px;font-size:15px;font-weight:600;cursor:pointer;white-space:nowrap;transition:background .15s;}
+.tp-korv-btn:hover:not(:disabled){background:#1d4ed8;}
+.tp-korv-btn:disabled{opacity:.4;cursor:not-allowed;}
+
+.tp-mv-wrap{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;}
+.tp-mv{padding:9px 18px;border-radius:9px;border:1.5px solid #e2e2e2;font-size:14px;cursor:pointer;color:#555;background:#fff;transition:all .12s;}
+.tp-mv.sel{background:#2563eb;border-color:#2563eb;color:#fff;}
+
+.tp-üle-table{border:1px solid #ebebeb;border-radius:10px;overflow:hidden;margin-bottom:16px;}
+.tp-üle-r{display:flex;justify-content:space-between;align-items:center;padding:11px 14px;border-bottom:1px solid #f2f2f2;font-size:14px;}
+.tp-üle-r:last-child{border-bottom:none;}
+.tp-üle-r.tot{font-weight:700;background:#f8f8f8;font-size:15px;}
+
+.tp-dialoogi-taust{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;}
+.tp-dialoogi{background:#fff;border-radius:16px;padding:26px;max-width:390px;width:100%;box-shadow:0 24px 64px rgba(0,0,0,.18);}
+.tp-dialoogi-h{font-size:18px;font-weight:700;margin:0 0 8px;}
+.tp-dialoogi-t{font-size:14px;color:#555;line-height:1.5;margin:0 0 20px;}
+.tp-dialoogi-nupud{display:flex;flex-direction:column;gap:8px;}
+.tp-dbn{width:100%;padding:13px 16px;border-radius:10px;font-size:14px;font-weight:500;cursor:pointer;border:1.5px solid #e2e2e2;text-align:left;background:#fff;color:#333;transition:all .12s;}
+.tp-dbn:hover{background:#f5f5f5;border-color:#ccc;}
+.tp-dbn.p{background:#2563eb;color:#fff;border-color:#2563eb;}
+.tp-dbn.p:hover{background:#1d4ed8;}
+
+.tp-kin{text-align:center;padding:10px 0 4px;}
+.tp-kin-ikoon{width:68px;height:68px;border-radius:50%;background:#dcfce7;border:2px solid #16a34a;display:flex;align-items:center;justify-content:center;margin:0 auto 14px;font-size:30px;}
+.tp-kin-nr{background:#f0fdf4;border:1px solid #86efac;border-radius:11px;padding:12px 22px;display:inline-block;margin:10px 0 18px;}
+.tp-kin-nr-l{font-size:12px;color:#16a34a;margin-bottom:3px;}
+.tp-kin-nr-v{font-size:22px;font-weight:700;color:#14532d;font-family:monospace;letter-spacing:1px;}
+.tp-kin-kokk{background:#f9f9f9;border-radius:11px;padding:14px 16px;margin-bottom:18px;text-align:left;}
+
+.tp-spinner-wrap{display:flex;align-items:center;gap:10px;padding:20px;justify-content:center;color:#777;font-size:14px;}
+.tp-spinner{width:22px;height:22px;border:2.5px solid #e2e2e2;border-top-color:#2563eb;border-radius:50%;animation:tp-spin .7s linear infinite;}
+@keyframes tp-spin{to{transform:rotate(360deg);}}
+
+.tp-viga{background:#fef2f2;border:1px solid #fecaca;border-radius:9px;padding:12px 16px;color:#dc2626;font-size:14px;margin-bottom:14px;display:flex;gap:8px;align-items:flex-start;}
+.tp-hoiatus{background:#fffbeb;border:1px solid #fde68a;border-radius:9px;padding:12px 16px;color:#92400e;font-size:14px;margin-bottom:14px;}
+
+.tp-parool-wrap{max-width:300px;margin:0 auto;text-align:center;}
+.tp-demo-banner{background:#eff6ff;border:1px solid #bfdbfe;border-radius:9px;padding:10px 14px;color:#1e40af;font-size:13px;margin-bottom:14px;}
+
+.tp-ver{text-align:center;font-size:12px;color:#ccc;margin-top:20px;padding-top:16px;border-top:1px solid #f2f2f2;}
+`;
+    document.head.appendChild(s);
+  }
+
+  // ─── Render ───────────────────────────────────────────────────────────────
+  let ROOT = null;
+
+  function rend() {
+    if (!ROOT) return;
+    ROOT.innerHTML = '';
+
+    if (S.samm >= 1 && S.samm <= 3) ROOT.appendChild(rendSammud());
+
+    if (S.viga) {
+      const d = el('div', 'tp-viga');
+      d.innerHTML = `<span>⚠</span><span>${esc(S.viga)}</span>`;
+      ROOT.appendChild(d);
+    }
+
+    if (onDemoRezim() && S.samm >= 1 && S.samm <= 3) {
+      const b = el('div', 'tp-demo-banner');
+      b.textContent = '🔧 Demo režiim — Supabase pole seadistatud. Andmed ei salvestata.';
+      ROOT.appendChild(b);
+    }
+
+    if (S.samm === 0) rendParool();
+    else if (S.samm === 1) rendKlient();
+    else if (S.samm === 2) rendTooted();
+    else if (S.samm === 3) rendÜlevaade();
+    else if (S.samm === 4) rendKinnitus();
+
+    const ver = el('div', 'tp-ver');
+    ver.textContent = `${TARNIJA_NIMI} · Tellimisplugina ${VERSIOON}`;
+    ROOT.appendChild(ver);
+
+    if (S.topelt && S.samm === 3) ROOT.appendChild(rendDialoog());
+  }
+
+  function rendSammud() {
+    const w = el('div', 'tp-sammud');
+    ['Kontakt', 'Tooted', 'Ülevaade'].forEach((n, i) => {
+      const nr = i + 1;
+      const s = el('div', 'tp-s');
+      const c = el('div', `tp-snr ${S.samm > nr ? 'ok' : S.samm === nr ? 'ak' : ''}`);
+      c.textContent = S.samm > nr ? '✓' : String(nr);
+      s.appendChild(c);
+      if (i < 2) {
+        const j = el('div', `tp-sjonn ${S.samm > nr ? 'ok' : ''}`);
+        s.appendChild(j);
+      }
+      w.appendChild(s);
+    });
+    return w;
+  }
+
+  function rendParool() {
+    const k = el('div', 'tp-kaart tp-parool-wrap');
+    k.innerHTML = `
+      <div class="tp-h1" style="text-align:center">🔒 Kaitstud</div>
+      <div class="tp-h2" style="text-align:center">Jätkamiseks sisesta parool</div>
+      <div class="tp-väli"><input type="password" id="tp-pv" class="tp-inp" placeholder="Parool" style="text-align:center;font-size:20px;letter-spacing:4px;"></div>
+    `;
+    const btn = el('button', 'tp-btn tp-btn-p');
+    btn.textContent = 'Jätka';
+    btn.onclick = () => {
+      const v = ROOT.querySelector('#tp-pv').value;
+      if (v === PAROOL) {
+        try { sessionStorage.setItem('tp_auth','1'); } catch {}
+        S.samm = 1; S.viga = '';
+      } else { S.viga = 'Vale parool, proovige uuesti'; }
+      rend();
+    };
+    k.appendChild(btn);
+    ROOT.appendChild(k);
+    setTimeout(() => {
+      const pv = ROOT.querySelector('#tp-pv');
+      if (pv) { pv.focus(); pv.onkeydown = e => { if (e.key==='Enter') btn.click(); }; }
+    }, 30);
+  }
+
+  function rendKlient() {
+    const k = el('div', 'tp-kaart');
+    k.innerHTML = `
+      <div class="tp-h1">Teie andmed</div>
+      <div class="tp-h2">Sisestage kontaktinfo tellimuse töötlemiseks</div>
+      <div class="tp-väli"><label class="tp-lbl">Nimi <span style="color:#ef4444">*</span></label><input type="text" id="tp-nimi" class="tp-inp" placeholder="Täisnimi" value="${esc(S.klient.nimi)}" autocomplete="name"></div>
+      <div class="tp-väli"><label class="tp-lbl">E-post</label><input type="email" id="tp-email" class="tp-inp" placeholder="nimi@firma.ee" value="${esc(S.klient.email)}" autocomplete="email"></div>
+      <div class="tp-väli"><label class="tp-lbl">Telefon</label><input type="tel" id="tp-tel" class="tp-inp" placeholder="+372 5000 0000" value="${esc(S.klient.telefon)}" autocomplete="tel"></div>
+    `;
+    const btn = el('button', 'tp-btn tp-btn-p');
+    btn.textContent = 'Jätka →';
+    btn.onclick = async () => {
+      const nimi = ROOT.querySelector('#tp-nimi').value.trim();
+      if (!nimi) { S.viga = 'Palun sisestage oma nimi'; rend(); return; }
+      S.klient = { nimi, email: ROOT.querySelector('#tp-email').value.trim(), telefon: ROOT.querySelector('#tp-tel').value.trim() };
+      salvestaKlientLS(S.klient);
+      S.viga = '';
+      S.samm = 2;
+      S.laadimine = true;
+      rend();
+      try {
+        S.tooted = onDemoRezim() ? DEMO_TOOTED : (await sbLaeTooted() || []);
+      } catch {
+        S.viga = 'Toodete laadimine ebaõnnestus. Proovige uuesti.';
+      }
+      S.laadimine = false;
+      rend();
+    };
+    k.appendChild(btn);
+    ROOT.appendChild(k);
+  }
+
+  function rendTooted() {
+    if (S.laadimine) {
+      const w = el('div', 'tp-spinner-wrap');
+      w.innerHTML = '<div class="tp-spinner"></div> Laen tooteid…';
+      ROOT.appendChild(w); return;
+    }
+    const k = el('div', 'tp-kaart');
+    k.innerHTML = '<div class="tp-h1">Valige tooted</div><div class="tp-h2">Lisage soovitud tooted ja kogused</div>';
+    if (!S.tooted.length) { k.innerHTML += '<p style="color:#777;font-size:14px;">Tooteid ei leitud.</p>'; ROOT.appendChild(k); return; }
+
+    const tw = el('div', 'tp-tooted');
+    S.tooted.forEach(t => {
+      const kv = S.korv[String(t.id)] || { kogus: 0, suurus: '', uhikhind: t.hind || t.hind_kg };
+      const valitud = t.suurused && t.suurused.length ? t.suurused.some(s => (S.korv[String(t.id)+':'+s] || {}).kogus > 0) : (S.korv[String(t.id)] || {}).kogus > 0;
+      const tc = el('div', `tp-toode ${valitud ? 'sel' : ''}`);
+
+      const top = el('div', 'tp-toode-top');
+      const nimi = el('div', 'tp-toode-nimi'); nimi.textContent = t.nimi;
+      const hind = el('div', 'tp-toode-hind'); hind.textContent = (t.hind||t.hind_kg) ? `${fmt(t.hind||t.hind_kg)}/${t.uhik || 'tk'}` : '';
+      top.appendChild(nimi); top.appendChild(hind); tc.appendChild(top);
+
+      if (t.suurused && t.suurused.length) {
+        // Iga suurus eraldi rida kogusega
+        t.suurused.forEach(s => {
+          const key = String(t.id) + ':' + s;
+          const skv = S.korv[key] || { kogus: 0, uhikhind: t.hind || t.hind_kg };
+          const sRida = el('div', 'tp-suurus-rida');
+          const sNimi = el('div', 'tp-suurus-nimi'); sNimi.textContent = s;
+          const qr2 = el('div', 'tp-qrow');
+          const mb2 = el('button', 'tp-qbtn'); mb2.textContent = '−';
+          mb2.onclick = () => { if (S.korv[key]) S.korv[key].kogus = Math.max(0, S.korv[key].kogus - 1); rend(); };
+          const av2 = el('div', 'tp-qarv'); av2.textContent = String(skv.kogus || 0);
+          const pb2 = el('button', 'tp-qbtn'); pb2.textContent = '+';
+          pb2.onclick = () => {
+            if (!S.korv[key]) S.korv[key] = { kogus: 0, uhikhind: t.hind || t.hind_kg };
+            S.korv[key].kogus++; rend();
+          };
+          qr2.appendChild(mb2); qr2.appendChild(av2); qr2.appendChild(pb2);
+          if (skv.kogus > 0 && (t.hind || t.hind_kg)) {
+            const qs2 = el('div', 'tp-qsum');
+            qs2.textContent = fmt(skv.kogus * (t.hind || t.hind_kg));
+            qr2.appendChild(qs2);
+          }
+          sRida.appendChild(sNimi); sRida.appendChild(qr2);
+          tc.appendChild(sRida);
+        });
+      } else {
+        const key = String(t.id);
+        const skv = S.korv[key] || { kogus: 0, uhikhind: t.hind || t.hind_kg };
+        const qr = el('div', 'tp-qrow');
+        const mb = el('button', 'tp-qbtn'); mb.textContent = '−';
+        mb.onclick = () => { if (S.korv[key]) S.korv[key].kogus = Math.max(0, S.korv[key].kogus - 1); rend(); };
+        const av = el('div', 'tp-qarv'); av.textContent = String(skv.kogus || 0);
+        const pb = el('button', 'tp-qbtn'); pb.textContent = '+';
+        pb.onclick = () => {
+          if (!S.korv[key]) S.korv[key] = { kogus: 0, uhikhind: t.hind || t.hind_kg };
+          S.korv[key].kogus++; rend();
+        };
+        qr.appendChild(mb); qr.appendChild(av); qr.appendChild(pb);
+        if (skv.kogus > 0 && (t.hind || t.hind_kg)) {
+          const qs = el('div', 'tp-qsum');
+          qs.textContent = fmt(skv.kogus * (t.hind || t.hind_kg));
+          qr.appendChild(qs);
+        }
+        tc.appendChild(qr);
+      }
+      tw.appendChild(tc);
+    });
+    k.appendChild(tw);
+    ROOT.appendChild(k);
+
+    // Sticky korv
+    const korv = el('div', 'tp-korv');
+    const arv = Object.values(S.korv).reduce((s, v) => s + (v.kogus || 0), 0);
+    const sm = summa();
+    const ki = el('div', 'tp-korv-inf');
+    ki.innerHTML = `<strong>${arv} ${arv === 1 ? 'toode' : 'toodet'}</strong>${sm > 0 ? `<br><span class="tp-korv-sum">${fmt(sm)}</span>` : ''}`;
+    const kb = el('button', 'tp-korv-btn');
+    kb.textContent = 'Edasi →'; kb.disabled = korvTuhi();
+    kb.onclick = () => { S.viga = ''; S.samm = 3; rend(); };
+    korv.appendChild(ki); korv.appendChild(kb);
+    ROOT.appendChild(korv);
+  }
+
+  function rendÜlevaade() {
+    const k = el('div', 'tp-kaart');
+    k.innerHTML = '<div class="tp-h1">Tellimuse ülevaade</div>';
+
+    const rr = read();
+    const tbl = el('div', 'tp-üle-table');
+    let tot = 0; let hinnad = false;
+    rr.forEach(r => {
+      const row = el('div', 'tp-üle-r');
+      const n = el('div'); n.textContent = `${r.toodeNimi}${r.suurus ? ` (${r.suurus})` : ''} × ${r.kogus}`;
+      row.appendChild(n);
+      if (r.uhikhind) {
+        hinnad = true;
+        const h = r.kogus * parseFloat(r.uhikhind); tot += h;
+        const hd = el('div'); hd.style.fontWeight = '600'; hd.textContent = fmt(h);
+        row.appendChild(hd);
+      }
+      tbl.appendChild(row);
+    });
+    if (hinnad) {
+      const totR = el('div', 'tp-üle-r tot');
+      const tl = el('div'); tl.textContent = 'Kokku';
+      const tv = el('div'); tv.textContent = fmt(tot);
+      totR.appendChild(tl); totR.appendChild(tv); tbl.appendChild(totR);
+    }
+    k.appendChild(tbl);
+
+    // Makseviis
+    const mvl = el('label', 'tp-lbl'); mvl.textContent = 'Makseviis';
+    k.appendChild(mvl);
+    const mvw = el('div', 'tp-mv-wrap');
+    MAKSEVIISID.forEach(mv => {
+      const b = el('button', `tp-mv ${S.makseviis === mv ? 'sel' : ''}`);
+      b.textContent = mv; b.onclick = () => { S.makseviis = mv; rend(); };
+      mvw.appendChild(b);
+    });
+    k.appendChild(mvw);
+
+    // Märkus
+    const md = el('div', 'tp-väli');
+    const ml = el('label', 'tp-lbl'); ml.textContent = 'Lisainfo / märkused (valikuline)';
+    const ta = el('textarea', 'tp-inp');
+    ta.placeholder = 'Tarneinfo, soovid vm…';
+    ta.value = S.markus; ta.oninput = () => { S.markus = ta.value; };
+    md.appendChild(ml); md.appendChild(ta); k.appendChild(md);
+
+    // Nupud
+    const brow = el('div', 'tp-btnrow');
+    const tag = el('button', 'tp-btn tp-btn-s');
+    tag.textContent = '← Tagasi'; tag.style.width = 'auto';
+    tag.onclick = () => { S.samm = 2; S.viga = ''; rend(); };
+
+    const saada = el('button', 'tp-btn tp-btn-p');
+    saada.textContent = S.laadimine ? 'Saadan…' : 'Saada tellimus';
+    saada.disabled = S.laadimine;
+    saada.onclick = async () => {
+      S.viga = ''; S.laadimine = true; rend();
+      try {
+        if (!onDemoRezim()) {
+          const tp = await sbTopelt(S.klient.nimi);
+          if (tp) { S.topelt = tp; S.laadimine = false; rend(); return; }
+        }
+        await esita('uus');
+      } catch {
+        S.laadimine = false; S.viga = 'Viga tellimuse saatmisel. Proovige uuesti.'; rend();
+      }
+    };
+    brow.appendChild(tag); brow.appendChild(saada); k.appendChild(brow);
+    ROOT.appendChild(k);
+  }
+
+  function rendDialoog() {
+    const taust = el('div', 'tp-dialoogi-taust');
+    const d = el('div', 'tp-dialoogi');
+    d.innerHTML = `<div class="tp-dialoogi-h">Leidsime eelmise tellimuse</div><div class="tp-dialoogi-t">${esc(S.klient.nimi)} esitas tellimuse hiljuti. Mida soovite teha?</div>`;
+    const nw = el('div', 'tp-dialoogi-nupud');
+
+    const mkBtn = (tekst, klass, cb) => {
+      const b = el('button', `tp-dbn ${klass}`);
+      b.textContent = tekst; b.onclick = cb; nw.appendChild(b);
+    };
+    mkBtn('➕  Lisa eelmisele tellimusele', 'p', async () => { taust.remove(); await esita('lisa'); });
+    mkBtn('🔄  Asenda eelmine tellimus', '', async () => { taust.remove(); await esita('asenda'); });
+    mkBtn('🆕  Esita uus eraldi tellimus', '', async () => { S.topelt = null; taust.remove(); await esita('uus'); });
+    d.appendChild(nw); taust.appendChild(d);
+    return taust;
+  }
+
+  async function esita(viis) {
+    S.laadimine = true; S.viga = ''; rend();
+    const rr = read();
+    let id = null; let meilViga = false;
+
+    try {
+      if (onDemoRezim()) {
+        id = genNr();
+        await new Promise(r => setTimeout(r, 600)); // demo viivitus
+      } else if (viis === 'lisa' && S.topelt) {
+        id = await sbLisa(S.topelt.id, rr, S.markus);
+      } else if (viis === 'asenda' && S.topelt) {
+        id = await sbAsenda(S.topelt.id, rr, S.markus);
+      } else {
+        id = await sbSalvesta({ nimi: S.klient.nimi, email: S.klient.email, makseviis: S.makseviis, markus: S.markus, read: rr });
+      }
+    } catch {
+      S.laadimine = false; S.viga = 'Tellimuse salvestamine ebaõnnestus. Proovige uuesti.'; rend(); return;
+    }
+
+    try {
+      if (EJS_SERVICE && EJS_SERVICE !== 'ASENDA' && S.klient.email) {
+        await saadaMeil({
+          klient_nimi: S.klient.nimi, klient_email: S.klient.email,
+          tellimus_nr: id,
+          tooted_nimekiri: rr.map(r => `${r.toodeNimi}${r.suurus ? ` (${r.suurus})` : ''} × ${r.kogus}${r.uhikhind ? ` = ${fmt(r.kogus * r.uhikhind)}` : ''}`).join('\n'),
+          kogusumma: fmt(summa()), makseviis: S.makseviis, markus: S.markus || '—',
+          tarnija_nimi: TARNIJA_NIMI, tarnija_email: TARNIJA_EMAIL,
+          kuupaev: new Date().toLocaleDateString('et-EE'),
+        });
+      }
+    } catch { meilViga = true; }
+
+    S.laadimine = false; S.samm = 4;
+    S.tellimusId = id; S.meilViga = meilViga; S.topelt = null;
+    rend();
+  }
+
+  function rendKinnitus() {
+    const k = el('div', 'tp-kaart tp-kin');
+    const rr = read();
+    const sm = summa();
+
+    k.innerHTML = `
+      <div class="tp-kin-ikoon">✓</div>
+      <h2 style="font-size:24px;font-weight:700;color:#14532d;margin:0 0 6px;">Täname!</h2>
+      <p style="font-size:15px;color:#555;margin:0 0 0;">${S.klient.email ? 'Tellimus on esitatud. Kinnitus saadeti e-postile.' : 'Tellimus on edukalt esitatud.'}</p>
+      <div class="tp-kin-nr">
+        <div class="tp-kin-nr-l">Tellimuse number</div>
+        <div class="tp-kin-nr-v">${esc(String(S.tellimusId))}</div>
+      </div>
+      <div class="tp-kin-kokk">
+        <div style="font-size:13px;color:#777;margin-bottom:8px;">Tellitud:</div>
+        ${rr.map(r => `<div style="font-size:14px;margin-bottom:4px;">• ${esc(r.toodeNimi)}${r.suurus ? ` (${esc(r.suurus)})` : ''} × ${r.kogus}${r.uhikhind ? ` — ${fmt(r.kogus * r.uhikhind)}` : ''}</div>`).join('')}
+        ${sm > 0 ? `<div style="font-size:15px;font-weight:700;margin-top:10px;border-top:1px solid #eee;padding-top:8px;">Kokku: ${fmt(sm)}</div>` : ''}
+        <div style="font-size:13px;color:#777;margin-top:8px;">Makseviis: ${esc(S.makseviis)}</div>
+        ${S.markus ? `<div style="font-size:13px;color:#777;margin-top:3px;">Märkus: ${esc(S.markus)}</div>` : ''}
+      </div>
+    `;
+
+    if (S.meilViga) {
+      const h = el('div', 'tp-hoiatus');
+      h.textContent = `Kinnitusmeil ei saadetud. Võtke ühendust: ${TARNIJA_EMAIL || 'tarnijaga'}`;
+      k.appendChild(h);
+    }
+
+    const btn = el('button', 'tp-btn tp-btn-s');
+    btn.textContent = '↺ Telli uuesti';
+    btn.style.marginTop = '4px';
+    btn.onclick = () => {
+      S.korv = {}; S.makseviis = MAKSEVIISID[0] || ''; S.markus = '';
+      S.samm = 1; S.viga = ''; S.tellimusId = null;
+      rend();
+    };
+    k.appendChild(btn);
+    ROOT.appendChild(k);
+  }
+
+  // ─── Init ─────────────────────────────────────────────────────────────────
+  function init() {
+    ROOT = document.getElementById('tellimis-plugin');
+    if (!ROOT) { console.warn('Tellimisplugina: #tellimis-plugin puudub'); return; }
+
+    if (EJS_KEY && EJS_KEY !== 'ASENDA') {
+      const sc = document.createElement('script');
+      sc.src = 'https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js';
+      document.head.appendChild(sc);
+    }
+
+    injectCSS();
+
+    const salv = laeKlientLS();
+    if (salv) S.klient = salv;
+
+    try {
+      if (PAROOL && sessionStorage.getItem('tp_auth') === '1') S.samm = 1;
+    } catch {}
+
+    rend();
+  }
+
+  async function start() {
+    await laeTootjaSlugist(); // lae tootja URL ?t= parameetrist
+    init();
+    // Lae tooted pärast tootja andmete laadimist
+    if (TARNIJA_ID) {
+      try {
+        S.tooted = await sbLaeTooted() || [];
+        rend();
+      } catch(e) { console.warn('Toodete laadimine:', e.message); }
+    }
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);
+  else start();
+})();
+
+</script>
+
+    <!-- Plugina kontainer — ärge muutke id-d -->
+    <div id="tellimis-plugin"></div>
+  </main>
+
+  <!-- ─── JALUS ────────────────────────────────────────────────── -->
+  <footer class="leht-jalus">
+    <div class="jalus-kontakt">
+      <!-- Asenda oma kontaktandmetega -->
+      <a href="mailto:info@tammejuure.ee">info@tammejuure.ee</a>
+      &nbsp;·&nbsp;
+      <a href="tel:+37250000000">+372 5000 0000</a>
+      &nbsp;·&nbsp;
+      Tallinn, Eesti
+    </div>
+    <div class="jalus-ver">Tellimisplugina v1.0</div>
+  </footer>
+
+</body>
+</html>
