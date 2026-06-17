@@ -33,6 +33,8 @@
     @keyframes dpulse { 0%,100%{opacity:1} 50%{opacity:.3} }
     .logo { font-family: var(--mono); font-size: 14px; font-weight: 500; color: var(--text); }
     .ver-badge { font-size: 10px; font-family: var(--mono); color: var(--text3); padding: 2px 7px; border: 1px solid var(--border2); border-radius: 4px; margin-left: auto; }
+    .logout-btn { background: none; border: 1px solid var(--border2); border-radius: 6px; width: 28px; height: 28px; color: var(--text3); cursor: pointer; font-size: 13px; margin-left: 6px; }
+    .logout-btn:hover { color: var(--red); border-color: var(--red); }
 
     /* Mikrofoni nupp */
     .mic-section { text-align: center; margin-bottom: 28px; }
@@ -107,22 +109,42 @@
 
     /* Jalus */
     .footer { text-align: center; margin-top: 28px; font-family: var(--mono); font-size: 10px; color: var(--text3); }
+
+    /* ─── Login ─── */
+    .login-wrap { width: 100%; max-width: 300px; }
+    .login-logo { font-family: var(--mono); font-size: 16px; font-weight: 500; color: var(--green); text-align: center; margin-bottom: 4px; }
+    .login-sub { font-size: 12px; color: var(--text3); text-align: center; margin-bottom: 28px; }
+    .login-väli { margin-bottom: 12px; }
+    .login-väli label { display: block; font-size: 12px; color: var(--text3); margin-bottom: 5px; }
+    .login-väli input { width: 100%; padding: 11px 13px; background: var(--bg2); border: 1px solid var(--border2); border-radius: 9px; color: var(--text); font-size: 15px; outline: none; }
+    .login-väli input:focus { border-color: var(--blue); }
+    .login-viga { font-size: 12px; color: var(--red); min-height: 18px; margin: 6px 0 8px; text-align: center; }
+    .login-btn { width: 100%; height: 46px; background: var(--green); color: #fff; border: none; border-radius: 10px; font-size: 15px; font-weight: 500; cursor: pointer; margin-top: 4px; }
+    .login-btn:disabled { opacity: .5; }
+    .login-hint { font-size: 11px; color: var(--text3); text-align: center; margin-top: 18px; line-height: 1.5; }
+    #haal-app { display: none; }
   </style>
 </head>
 <body>
 
-<!-- KONFIGURATSIOON — asenda oma andmetega -->
-<script>
-window.HaaleConfig = {
-  /* Ainult Supabase ühendus — kõik muud seaded laetakse Supabasest */
-  supabaseUrl: 'https://dewnjlvwasxludspbpfm.supabase.co',
-  supabaseKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRld25qbHZ3YXN4bHVkc3BicGZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgzMjIyMDMsImV4cCI6MjA5Mzg5ODIwM30.HJl5w_HqAWn1YVczBo96eobxJzDohatsVY8yqGK2QJs',
-  tarnijaId:   '8252e26f-f940-4ea9-abbf-0b68b9a19dfa',
-  versioon:    'v1.1'
-  /* claude_api_key, valuuta, firma_nimi — laetakse Supabase seaded tabelist */
-};
-</script>
+<!-- LOGIN VAADE -->
+<div class="login-wrap" id="login-screen">
+  <div class="login-logo">🎤 Häältellimus</div>
+  <div class="login-sub">OrderHub · sisene korra, jääb meelde</div>
+  <div class="login-väli">
+    <label>Email</label>
+    <input type="email" id="l-email" autocomplete="email" inputmode="email">
+  </div>
+  <div class="login-väli">
+    <label>Parool</label>
+    <input type="password" id="l-parool" autocomplete="current-password" onkeydown="if(event.key==='Enter')haalLogi()">
+  </div>
+  <div class="login-viga" id="l-viga"></div>
+  <button class="login-btn" id="l-btn" onclick="haalLogi()">Sisene →</button>
+  <div class="login-hint">Pärast sisselogimist jääb seade meelde — roolis ei küsita parooli uuesti. Lisa see leht kodukuvarile (Add to Home Screen) kiireks ligipääsuks.</div>
+</div>
 
+<div id="haal-app">
 <div class="wrap">
 
   <!-- Päis -->
@@ -130,6 +152,7 @@ window.HaaleConfig = {
     <div class="dot"></div>
     <span class="logo">Häältellimus</span>
     <span class="ver-badge" id="ver-badge">v1.1</span>
+    <button class="logout-btn" onclick="haalLogiValja()" title="Logi välja" id="logout-btn">⎋</button>
   </div>
 
   <!-- Hoiatus -->
@@ -162,22 +185,137 @@ window.HaaleConfig = {
   </div>
 
   <!-- Jalus -->
-  <div class="footer" id="footer">OrderHub · Tammejuure Mahetalu</div>
+  <div class="footer" id="footer">OrderHub</div>
 
 </div>
+</div>
+
+<script>
+window.HaaleConfig = {
+  supabaseUrl: 'https://dewnjlvwasxludspbpfm.supabase.co',
+  supabaseKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRld25qbHZ3YXN4bHVkc3BicGZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgzMjIyMDMsImV4cCI6MjA5Mzg5ODIwM30.HJl5w_HqAWn1YVczBo96eobxJzDohatsVY8yqGK2QJs',
+  versioon:    'v1.2'
+};
+</script>
+
+<script>
+(function() {
+  var cfg = window.HaaleConfig;
+  var SB_URL = cfg.supabaseUrl;
+  var SB_KEY = cfg.supabaseKey;
+  var STORAGE_KEY = 'oh_haal_sess';
+
+  async function sbAuth(path, body) {
+    var r = await fetch(SB_URL + '/auth/v1/' + path, {
+      method: 'POST',
+      headers: { 'apikey': SB_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    var data = await r.json();
+    if (!r.ok) throw new Error(data.error_description || data.msg || 'Auth viga');
+    return data;
+  }
+
+  async function getUser(token) {
+    var r = await fetch(SB_URL + '/auth/v1/user', {
+      headers: { 'apikey': SB_KEY, 'Authorization': 'Bearer ' + token }
+    });
+    if (!r.ok) return null;
+    return r.json();
+  }
+
+  async function refreshSession(refreshToken) {
+    var r = await fetch(SB_URL + '/auth/v1/token?grant_type=refresh_token', {
+      method: 'POST',
+      headers: { 'apikey': SB_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refresh_token: refreshToken })
+    });
+    if (!r.ok) return null;
+    return r.json();
+  }
+
+  window.haalLogi = async function() {
+    var email  = document.getElementById('l-email').value.trim();
+    var parool = document.getElementById('l-parool').value;
+    var viga   = document.getElementById('l-viga');
+    var btn    = document.getElementById('l-btn');
+    if (!email || !parool) { viga.textContent = 'Sisesta email ja parool'; return; }
+    btn.disabled = true;
+    btn.textContent = 'Logen sisse...';
+    viga.textContent = '';
+    try {
+      var data = await sbAuth('token?grant_type=password', { email: email, password: parool });
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({
+        token: data.access_token,
+        refresh: data.refresh_token
+      }));
+      await algatHaal(data.access_token);
+    } catch(e) {
+      viga.textContent = 'Vale email või parool';
+      btn.disabled = false;
+      btn.textContent = 'Sisene →';
+    }
+  };
+
+  async function algatHaal(accessToken) {
+    var user = await getUser(accessToken);
+    if (!user) throw new Error('Sessioon kehtetu');
+    var r = await fetch(SB_URL + '/rest/v1/kasutajad?auth_id=eq.' + user.id + '&select=tarnija_id', {
+      headers: { 'apikey': SB_KEY, 'Authorization': 'Bearer ' + accessToken }
+    });
+    var rows = await r.json();
+    if (!rows || !rows[0]) throw new Error('Kasutaja profiil puudub');
+    window.HaaleConfig.tarnijaId = rows[0].tarnija_id;
+    window.HaaleConfig.accessToken = accessToken;
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('haal-app').style.display = 'block';
+    window.kaivitaHaaleApp();
+  }
+
+  window.haalLogiValja = function() {
+    localStorage.removeItem(STORAGE_KEY);
+    location.reload();
+  };
+
+  (async function init() {
+    try {
+      var saved = localStorage.getItem(STORAGE_KEY);
+      if (!saved) return;
+      var sess = JSON.parse(saved);
+      var user = await getUser(sess.token);
+      if (user) {
+        await algatHaal(sess.token);
+        return;
+      }
+      if (sess.refresh) {
+        var fresh = await refreshSession(sess.refresh);
+        if (fresh && fresh.access_token) {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify({
+            token: fresh.access_token, refresh: fresh.refresh_token
+          }));
+          await algatHaal(fresh.access_token);
+        }
+      }
+    } catch(e) {
+      console.warn('Sessiooni taastamine ebaõnnestus:', e.message);
+    }
+  })();
+})();
+</script>
 
 <div class="toast" id="toast"></div>
 
 <script>
-(function() {
+function kaivitaHaaleApp() {
   var cfg = window.HaaleConfig || {};
   var SB_URL = cfg.supabaseUrl;
   var SB_KEY = cfg.supabaseKey;
+  var ATOKEN = cfg.accessToken;  // kasutaja JWT — RLS jaoks vajalik
   var TID    = cfg.tarnijaId;
   var CLAUDE = cfg.claudeApiKey || '';  // uuendatakse Supabase seadetest
   var GROQ   = '';                          // Groq Whisper API võti, laetakse seadetest
   var VAL    = cfg.valuuta || '€';
-  var VER    = cfg.versioon || 'v1.1';
+  var VER    = cfg.versioon || 'v1.2';
 
   var phase = 'idle';
   var recog = null;
@@ -194,7 +332,7 @@ window.HaaleConfig = {
     try {
       // 1. Lae seaded
       var sr = await fetch(SB_URL + '/rest/v1/seaded?tarnija_id=eq.' + TID + '&select=voti,vaartus', {
-        headers: { 'apikey': SB_KEY, 'Authorization': 'Bearer ' + SB_KEY }
+        headers: { 'apikey': SB_KEY, 'Authorization': 'Bearer ' + ATOKEN }
       });
       var seaded = await sr.json();
       var seadedMap = {};
@@ -213,7 +351,7 @@ window.HaaleConfig = {
 
       // 2. Lae tooted
       var tr = await fetch(SB_URL + '/rest/v1/tooted?tarnija_id=eq.' + TID + '&select=id,nimi,suurused,hind,uhik&aktiivne=eq.true&order=nimi.asc', {
-        headers: { 'apikey': SB_KEY, 'Authorization': 'Bearer ' + SB_KEY }
+        headers: { 'apikey': SB_KEY, 'Authorization': 'Bearer ' + ATOKEN }
       });
       dbTooted = await tr.json();
 
@@ -234,7 +372,7 @@ window.HaaleConfig = {
     var r = await fetch(SB_URL + '/rest/v1/' + endpoint, {
       method: 'POST',
       headers: {
-        'apikey': SB_KEY, 'Authorization': 'Bearer ' + SB_KEY,
+        'apikey': SB_KEY, 'Authorization': 'Bearer ' + ATOKEN,
         'Content-Type': 'application/json', 'Prefer': 'return=representation'
       },
       body: JSON.stringify(body)
@@ -582,7 +720,8 @@ window.HaaleConfig = {
     }).join('');
   }
 
-})();
+}
+window.kaivitaHaaleApp = kaivitaHaaleApp;
 </script>
 </body>
 </html>
