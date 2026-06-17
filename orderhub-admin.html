@@ -161,6 +161,21 @@
     .toast.show { transform: translateX(-50%) translateY(0); }
     .toast.ok { border-color: var(--green); color: var(--green); }
     .ver { text-align: center; font-size: 11px; color: var(--text3); padding: 20px 0 8px; font-family: var(--mono); }
+    /* ─── Inbox ─── */
+    .inbox-kaart { border-bottom: 1px solid var(--border); padding: 14px 16px; border-left: 3px solid var(--blue); }
+    .inbox-kaart.viga { border-left-color: var(--red); }
+    .inbox-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
+    .inbox-nimi { font-size: 14px; font-weight: 500; }
+    .inbox-meta { font-size: 11px; color: var(--text3); display: flex; gap: 6px; margin-top: 2px; flex-wrap: wrap; }
+    .inbox-algtekst { background: var(--bg3); border: 1px solid var(--border); border-radius: 7px; padding: 10px 12px; font-size: 12px; color: var(--text2); margin: 8px 0; white-space: pre-wrap; max-height: 120px; overflow-y: auto; }
+    .inbox-read { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 10px; }
+    .inbox-markus { font-size: 12px; color: var(--text2); margin-bottom: 10px; font-style: italic; }
+    .inbox-viga-teade { font-size: 12px; color: var(--red); background: var(--red-dim); border-radius: 6px; padding: 8px 10px; margin-bottom: 10px; }
+    .inbox-nupud { display: flex; gap: 8px; }
+    .btn-kinnita { height: 36px; padding: 0 16px; background: var(--green); color: #fff; border: none; border-radius: 7px; font-size: 12.5px; font-weight: 500; cursor: pointer; }
+    .btn-kinnita:disabled { opacity: .5; cursor: not-allowed; }
+    .btn-lykka { height: 36px; padding: 0 14px; background: none; border: 1px solid var(--border2); border-radius: 7px; font-size: 12.5px; color: var(--text2); cursor: pointer; }
+    .inbox-badge { background: var(--blue-dim); color: var(--blue); border-radius: 10px; padding: 1px 7px; font-size: 11px; font-family: var(--mono); margin-left: 6px; }
     /* ─── Login leht ─── */
     .login-leht { min-height: 100vh; display: flex; align-items: center; justify-content: center; }
     .login-kaart { background: var(--bg2); border: 1px solid var(--border2); border-radius: 14px; padding: 28px; width: 300px; }
@@ -212,6 +227,7 @@ window.OHConfig = {
     vaade:       'tellimused',
     tellimused:  [],
     tooted:      [],
+    inbox:       [],
     seaded:      {},
     makseviisid: ['Arve', 'Pangaülekanne', 'Sularaha'],
     filter:      'kõik',
@@ -353,12 +369,14 @@ window.OHConfig = {
     if (btn) { btn.classList.add('loading'); }
     S.laadimine = true;
     try {
-      const [tell, toot] = await Promise.all([
+      const [tell, toot, inb] = await Promise.all([
         sb(`tellimused?tarnija_id=eq.${S.tarnijaId}&select=*,tellimus_read(*)&order=loodud.desc`),
-        sb(`tooted?tarnija_id=eq.${S.tarnijaId}&select=*&order=nimi.asc`)
+        sb(`tooted?tarnija_id=eq.${S.tarnijaId}&select=*&order=nimi.asc`),
+        sb(`orderhub_inbox?tarnija_id=eq.${S.tarnijaId}&staatus=eq.uus&select=*&order=loodud.desc`)
       ]);
       S.tellimused = tell || [];
       S.tooted     = toot || [];
+      S.inbox      = inb  || [];
       await laeSeaded();
     } catch(e) {
       console.error('Laadimine ebaõnnestus:', e.message);
@@ -430,6 +448,10 @@ window.OHConfig = {
         <div id="tellimuste-nimekiri">${renderdaTellimused()}</div>
       </div>
 
+      <div class="vaade" id="v-inbox">
+        ${renderdaInbox()}
+      </div>
+
       <div class="vaade" id="v-tooted">
         ${renderdaTooted()}
       </div>
@@ -441,6 +463,9 @@ window.OHConfig = {
       <nav class="nav">
         <button class="nav-item ${S.vaade==='tellimused'?'on':''}" onclick="navi('tellimused')">
           <span class="nav-ikoon">📦</span>Tellimused
+        </button>
+        <button class="nav-item ${S.vaade==='inbox'?'on':''}" onclick="navi('inbox')">
+          <span class="nav-ikoon">📥</span>Inbox${S.inbox.length?`<span class="inbox-badge">${S.inbox.length}</span>`:''}
         </button>
         <button class="nav-item ${S.vaade==='tooted'?'on':''}" onclick="navi('tooted')">
           <span class="nav-ikoon">🛍️</span>Tooted
@@ -553,6 +578,99 @@ window.OHConfig = {
     </div>`;
   }
 
+  function renderdaInbox() {
+    if (!S.inbox.length) return `<div class="tyhi"><div class="tyhi-nr">0</div>Inbox on tühi</div>`;
+    return S.inbox.map(k => {
+      const p = k.parsitud_json || {};
+      const viga = p._viga;
+      const read = p.read || [];
+      const kuup = new Date(k.loodud).toLocaleDateString('et-EE',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
+      return `<div class="inbox-kaart ${viga?'viga':''}">
+        <div class="inbox-top">
+          <div>
+            <div class="inbox-nimi">${esc(p.klient_nimi || k.klient_nimi_tuvastatud || 'Tundmatu klient')}</div>
+            <div class="inbox-meta">
+              <span>${kuup}</span>
+              <span class="kanal-tag">${esc(k.kanal||'')}</span>
+            </div>
+          </div>
+        </div>
+        ${viga ? `<div class="inbox-viga-teade">⚠️ ${esc(viga)}</div>` : ''}
+        ${read.length ? `<div class="inbox-read">${read.map(r=>`<span class="toode-tag">${esc(r.toode)} ${r.kogus}${esc(r.suurus||'')}</span>`).join('')}</div>` : ''}
+        ${p.markus ? `<div class="inbox-markus">${esc(p.markus)}</div>` : ''}
+        ${k.algtekst ? `<div class="inbox-algtekst">${esc(k.algtekst)}</div>` : ''}
+        <div class="inbox-nupud">
+          <button class="btn-kinnita" ${viga||!read.length?'disabled':''} onclick="kinnitaInbox('${k.id}')">✓ Kinnita tellimuseks</button>
+          <button class="btn-lykka" onclick="lykkaInbox('${k.id}')">Lükka tagasi</button>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  window.kinnitaInbox = async function(inboxId) {
+    const kirje = S.inbox.find(k => k.id === inboxId);
+    if (!kirje) return;
+    const p = kirje.parsitud_json || {};
+    const read = p.read || [];
+    try {
+      // 1. Loo tellimus
+      const tell = await sb('tellimused', {
+        method: 'POST',
+        body: JSON.stringify({
+          tarnija_id:   S.tarnijaId,
+          klient_nimi:  p.klient_nimi || kirje.klient_nimi_tuvastatud || 'Tundmatu',
+          klient_email: p.klient_email || null,
+          klient_telefon: p.klient_telefon || null,
+          kanal:        kirje.kanal,
+          staatus:      'kinnitatud',
+          markus:       p.markus || null,
+          loodud:       new Date().toISOString()
+        })
+      });
+      const tid = tell?.[0]?.id;
+      // 2. Loo tellimus_read read, otsides toodet nime järgi
+      if (tid && read.length) {
+        for (const r of read) {
+          const toode = S.tooted.find(t => t.nimi.toLowerCase() === (r.toode||'').toLowerCase());
+          await sb('tellimus_read', {
+            method: 'POST', prefer: 'return=minimal',
+            body: JSON.stringify({
+              tellimus_id: tid,
+              toode_id:    toode?.id || null,
+              toode_nimi:  r.toode,
+              kogus:       r.kogus || 1,
+              suurus:      r.suurus || null,
+              uhikhind:    toode?.hind || null
+            })
+          });
+        }
+      }
+      // 3. Märgi inbox kirje töödelduks
+      await sb(`orderhub_inbox?id=eq.${inboxId}&tarnija_id=eq.${S.tarnijaId}`, {
+        method: 'PATCH', prefer: 'return=minimal',
+        body: JSON.stringify({ staatus: 'töödeldud', kinnitatud_tellimus_id: tid })
+      });
+      naita_toast('Tellimus loodud!', true);
+      await laeKõik();
+    } catch(e) {
+      naita_toast('Viga: ' + e.message);
+    }
+  };
+
+  window.lykkaInbox = async function(inboxId) {
+    if (!confirm('Lükka see inbox kirje tagasi (märgi tühistatuks)?')) return;
+    try {
+      await sb(`orderhub_inbox?id=eq.${inboxId}&tarnija_id=eq.${S.tarnijaId}`, {
+        method: 'PATCH', prefer: 'return=minimal',
+        body: JSON.stringify({ staatus: 'tühistatud' })
+      });
+      naita_toast('Lükatud tagasi', true);
+      await laeKõik();
+    } catch(e) {
+      naita_toast('Viga: ' + e.message);
+    }
+  };
+
   function renderdaTooted() {
     const vorm = S.toodevorm ? renderdaToodevorm() : `
       <div style="padding:14px 16px;border-bottom:1px solid var(--border)">
@@ -638,12 +756,12 @@ window.OHConfig = {
   // ─── Navigatsioon ─────────────────────────────────────────────
   window.navi = function(v) {
     S.vaade = v;
-    ['tellimused','tooted','seaded'].forEach(id => {
+    ['tellimused','inbox','tooted','seaded'].forEach(id => {
       const el = document.getElementById('v-'+id);
       if (el) el.classList.toggle('on', id===v);
     });
     document.querySelectorAll('.nav-item').forEach((b,i) => {
-      b.classList.toggle('on', ['tellimused','tooted','seaded'][i]===v);
+      b.classList.toggle('on', ['tellimused','inbox','tooted','seaded'][i]===v);
     });
   };
 
