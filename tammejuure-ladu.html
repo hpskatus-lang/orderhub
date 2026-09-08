@@ -253,8 +253,8 @@ a { color: inherit; text-decoration: none; }
       <p>Mahetalu tootmis- ja laosüsteem</p>
     </div>
     <div class="form-row">
-      <label class="form-label">Kasutajanimi</label>
-      <input type="text" id="l-user" placeholder="kasutajanimi" autocomplete="username">
+      <label class="form-label">E-post</label>
+      <input type="email" id="l-user" placeholder="e-post" autocomplete="email">
     </div>
     <div class="form-row">
       <label class="form-label">Parool</label>
@@ -262,9 +262,7 @@ a { color: inherit; text-decoration: none; }
     </div>
     <button class="btn btn-primary btn-block mt8" onclick="doLogin()">Logi sisse</button>
     <div id="l-err" class="alert alert-red mt8" style="display:none">Vale kasutajanimi või parool.</div>
-    <div class="alert alert-info mt8" style="font-size:11px;">
-      Demo: <strong>admin / admin123</strong> · <strong>mari / mari123</strong>
-    </div>
+
   </div>
 </div>
 
@@ -1346,28 +1344,39 @@ a { color: inherit; text-decoration: none; }
 // ============================================================
 // SUPABASE
 // ============================================================
-const SB_URL = 'https://qnuowxzawuuykactfljz.supabase.co';
-const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFudW93eHphd3V1eWthY3RmbGp6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUzNzQyODAsImV4cCI6MjA5MDk1MDI4MH0.97dDtvqB-nk6apX1WoueQTvjAj-wGbdXw-tl769lFJk';
-const HDR = { 'apikey': SB_KEY, 'Authorization': 'Bearer ' + SB_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=representation' };
+const SB_URL = 'PANE_SIIA_UUE_PROJEKTI_URL';
+const SB_KEY = 'PANE_SIIA_UUE_PROJEKTI_ANON_KEY';
+
+// Sisselogitud kasutaja token. Ilma selleta naeb RLS meid anonuumsena.
+let SB_TOKEN = null;
+
+function hdr() {
+  return {
+    'apikey': SB_KEY,
+    'Authorization': 'Bearer ' + (SB_TOKEN || SB_KEY),
+    'Content-Type': 'application/json',
+    'Prefer': 'return=representation'
+  };
+}
 
 const sb = {
   async get(table, params = '') {
-    const r = await fetch(`${SB_URL}/rest/v1/${table}${params ? '?' + params : ''}`, { headers: HDR });
+    const r = await fetch(`${SB_URL}/rest/v1/${table}${params ? '?' + params : ''}`, { headers: hdr() });
     if (!r.ok) throw new Error(await r.text());
     return r.json();
   },
   async post(table, data) {
-    const r = await fetch(`${SB_URL}/rest/v1/${table}`, { method: 'POST', headers: HDR, body: JSON.stringify(data) });
+    const r = await fetch(`${SB_URL}/rest/v1/${table}`, { method: 'POST', headers: hdr(), body: JSON.stringify(data) });
     if (!r.ok) throw new Error(await r.text());
     return r.json();
   },
   async patch(table, filter, data) {
-    const r = await fetch(`${SB_URL}/rest/v1/${table}?${filter}`, { method: 'PATCH', headers: HDR, body: JSON.stringify(data) });
+    const r = await fetch(`${SB_URL}/rest/v1/${table}?${filter}`, { method: 'PATCH', headers: hdr(), body: JSON.stringify(data) });
     if (!r.ok) throw new Error(await r.text());
     return r.json();
   },
   async del(table, filter) {
-    const r = await fetch(`${SB_URL}/rest/v1/${table}?${filter}`, { method: 'DELETE', headers: HDR });
+    const r = await fetch(`${SB_URL}/rest/v1/${table}?${filter}`, { method: 'DELETE', headers: hdr() });
     if (!r.ok) throw new Error(await r.text());
     return true;
   }
@@ -1376,7 +1385,7 @@ const sb = {
 // ============================================================
 // ANDMED (mälu cache)
 // ============================================================
-let D = { tooted: [], toote_suurused: [], partiid: [], kasutajad: [], kliendid: [], kliendi_tingimused: [], materjalid: [], ladu_cache: [], ladu_parandused: [], mahakandmised: [], tootmissessioonid: [], tootmissessiooni_read: [], tellimused: [], tellimuse_read: [], tellimuse_partiid: [], teavitused: [], sundmused: [], ladu_piirmaarad: [], tarnija_id: null };
+let D = { tooted: [], toote_suurused: [], partiid: [], profiilid: [], kliendid: [], kliendi_tingimused: [], materjalid: [], ladu_cache: [], ladu_parandused: [], mahakandmised: [], tootmissessioonid: [], tootmissessiooni_read: [], tellimused: [], tellimuse_read: [], tellimuse_partiid: [], teavitused: [], sundmused: [], ladu_piirmaarad: [], tarnija_id: null };
 let currentUser = null;
 let kmTingimused = []; // klient modal tingimused
 let kmEditId = null;
@@ -1389,8 +1398,8 @@ let pkjActiveTel = null;
 async function laadKoik() {
   showLoading(true);
   try {
-    const tarnijad = await sb.get('tarnijad', 'limit=1');
-    D.tarnija_id = tarnijad[0]?.id;
+    // Tarnija tuleb sisselogitud kasutaja profiilist. RLS hoolitseb ylejaanu eest.
+    D.tarnija_id = currentUser.tarnija_id;
     const tid = D.tarnija_id;
 
     const [tooted, suurused, partiid, kasutajad, kliendid, tingimused,
@@ -1399,7 +1408,7 @@ async function laadKoik() {
       sb.get('tooted', `tarnija_id=eq.${tid}&order=nimi`),
       sb.get('toote_suurused', `order=suurus`),
       sb.get('partiid', `tarnija_id=eq.${tid}&order=tootmiskuupaev.asc`),
-      sb.get('kasutajad', `tarnija_id=eq.${tid}&order=nimi`),
+      sb.get('profiilid', `tarnija_id=eq.${tid}&order=nimi`),
       sb.get('kliendid', `tarnija_id=eq.${tid}&order=nimi`),
       sb.get('kliendi_tingimused', `order=id`),
       sb.get('materjalid', `tarnija_id=eq.${tid}&order=nimetus`),
@@ -1419,7 +1428,7 @@ async function laadKoik() {
     D.tooted = tooted;
     D.toote_suurused = suurused;
     D.partiid = partiid;
-    D.kasutajad = kasutajad;
+    D.profiilid = kasutajad;
     D.kliendid = kliendid;
     D.kliendi_tingimused = tingimused;
     D.materjalid = materjalid;
@@ -1454,7 +1463,7 @@ function fmtDateTime(s) { if (!s) return '—'; return new Date(s).toLocaleStrin
 
 function getToode(id) { return D.tooted.find(t => t.id === id) || { nimi: '—', yhik: 'tk', parim_enne_paevad: 365 }; }
 function getKlient(id) { return D.kliendid.find(k => k.id === id) || { nimi: '—' }; }
-function getKasutaja(id) { return D.kasutajad.find(k => k.id === id) || { nimi: '—' }; }
+function getKasutaja(id) { return D.profiilid.find(k => k.id === id) || { nimi: '—' }; }
 function getPartii(id) { return D.partiid.find(p => p.id === id) || null; }
 
 function getSuurused(toode_id) {
@@ -1652,25 +1661,51 @@ function showSub(parent, name) {
 // LOGIN
 // ============================================================
 async function doLogin() {
-  const user = document.getElementById('l-user').value.trim().toLowerCase();
-  const pass = document.getElementById('l-pass').value;
-  // Laadi kasutajad SB-st
+  const email = document.getElementById('l-user').value.trim();
+  const pass  = document.getElementById('l-pass').value;
+  const err   = document.getElementById('l-err');
   try {
-    const kasutajad = await sb.get('kasutajad', `kasutajanimi=eq.${user}&parool_hash=eq.${pass}`);
-    if (kasutajad.length === 0) {
-      document.getElementById('l-err').style.display = 'block';
-      return;
-    }
-    document.getElementById('l-err').style.display = 'none';
-    currentUser = kasutajad[0];
-    // Uuenda viimane login
-    await sb.patch('kasutajad', `id=eq.${currentUser.id}`, { viimane_login: new Date().toISOString() });
-    localStorage.setItem('tj_session', JSON.stringify({ id: currentUser.id, roll: currentUser.roll }));
-    await laadKoik();
-    startSession();
+    const r = await fetch(`${SB_URL}/auth/v1/token?grant_type=password`, {
+      method: 'POST',
+      headers: { 'apikey': SB_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password: pass })
+    });
+    if (!r.ok) { err.textContent = 'Vale e-post voi parool.'; err.style.display = 'block'; return; }
+    const sess = await r.json();
+    err.style.display = 'none';
+    await alustaSessioon(sess);
   } catch(e) {
     toast('Sisselogimisviga: ' + e.message, 'red');
   }
+}
+
+// Yhine koht: token paika, profiil katte, andmed laadi.
+async function alustaSessioon(sess) {
+  SB_TOKEN = sess.access_token;
+  localStorage.setItem('tj_sess', JSON.stringify({
+    access_token:  sess.access_token,
+    refresh_token: sess.refresh_token
+  }));
+  const prof = await sb.get('profiilid', `id=eq.${sess.user.id}`);
+  if (!prof.length) {
+    toast('Kasutajal pole profiili. Vota yhendust adminiga.', 'red');
+    SB_TOKEN = null; localStorage.removeItem('tj_sess');
+    return;
+  }
+  currentUser = prof[0];
+  await laadKoik();
+  startSession();
+}
+
+// Token aegub ~1h parast. Uuendame vaikselt taustal.
+async function uuendaToken(refresh_token) {
+  const r = await fetch(`${SB_URL}/auth/v1/token?grant_type=refresh_token`, {
+    method: 'POST',
+    headers: { 'apikey': SB_KEY, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ refresh_token })
+  });
+  if (!r.ok) throw new Error('Sessioon aegunud');
+  return r.json();
 }
 
 function isVaataja() { return currentUser?.roll === 'vaataja'; }
@@ -1705,12 +1740,10 @@ function startSession() {
 
 function logout() {
   currentUser = null;
-  localStorage.removeItem('tj_session');
-  document.getElementById('app').style.display = 'none';
-  document.getElementById('pakkija-screen').style.display = 'none';
-  document.getElementById('login-screen').style.display = 'flex';
-  document.getElementById('l-user').value = '';
-  document.getElementById('l-pass').value = '';
+  SB_TOKEN = null;
+  localStorage.removeItem('tj_sess');
+  fetch(`${SB_URL}/auth/v1/logout`, { method: 'POST', headers: hdr() }).catch(()=>{});
+  location.reload();
 }
 
 document.getElementById('l-pass').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
@@ -2024,7 +2057,7 @@ function renderPakkimine() {
 
   const kSel = document.getElementById('pk-kasutaja');
   kSel.innerHTML = '';
-  D.kasutajad.forEach(k => kSel.innerHTML += `<option value="${k.id}"${k.id===currentUser.id?' selected':''}>${k.nimi}</option>`);
+  D.profiilid.forEach(k => kSel.innerHTML += `<option value="${k.id}"${k.id===currentUser.id?' selected':''}>${k.nimi}</option>`);
 
   document.getElementById('pk-kpv').value = today();
   document.getElementById('pk-algus').value = nowTime();
@@ -2808,30 +2841,18 @@ function renderSeaded() {
 function renderKasutajad() {
   const tbody = document.getElementById('kasutajad-body');
   tbody.innerHTML = '';
-  D.kasutajad.forEach(k => {
-    const rollBadge = { admin:'b-red', tootja:'b-green', vaataja:'b-gray' }[k.roll] || 'b-gray';
+  D.profiilid.forEach(k => {
+    const rollBadge = { omanik:'b-red', admin:'b-red', tootaja:'b-green', vaataja:'b-gray' }[k.roll] || 'b-gray';
     tbody.innerHTML += `<tr>
-      <td>${k.nimi}</td><td>${k.kasutajanimi}</td>
+      <td>${k.nimi}</td><td>${k.aktiivne ? 'aktiivne' : '\u2014'}</td>
       <td><span class="badge ${rollBadge}">${k.roll}</span></td>
-      <td>${fmtDate(k.viimane_login)}</td>
+      <td>\u2014</td>
     </tr>`;
   });
 }
 
 async function saveKasutaja() {
-  const nimi = document.getElementById('ku-nimi').value.trim();
-  const user = document.getElementById('ku-user').value.trim().toLowerCase();
-  const pass = document.getElementById('ku-pass').value;
-  const roll = document.getElementById('ku-roll').value;
-  if (!nimi || !user || !pass) { toast('Täida kõik väljad!', 'warn'); return; }
-  if (D.kasutajad.find(k => k.kasutajanimi === user)) { toast('Kasutajanimi on juba olemas!', 'warn'); return; }
-  try {
-    const ins = await sb.post('kasutajad', { tarnija_id: D.tarnija_id, nimi, kasutajanimi: user, parool_hash: pass, roll });
-    D.kasutajad.push(ins[0]);
-    closeModal('kasutaja-modal');
-    renderKasutajad();
-    toast('Kasutaja lisatud!', 'green');
-  } catch(e) { toast('Viga: ' + e.message, 'red'); }
+  toast('Uus kasutaja luuakse Supabase Authentication all, siis lisatakse profiilid tabelisse.', 'warn');
 }
 
 function renderPiirid() {
@@ -3729,7 +3750,7 @@ function renderTooaegView() {
   // Täida filter kasutajad
   const sel = document.getElementById('ta-f-kasutaja');
   if (sel.options.length <= 1) {
-    D.kasutajad.filter(k => k.roll === 'tootja' || k.roll === 'admin').forEach(k => {
+    D.profiilid.filter(k => k.roll === 'tootja' || k.roll === 'admin').forEach(k => {
       sel.innerHTML += `<option value="${k.id}">${k.nimi}</option>`;
     });
   }
@@ -3887,7 +3908,7 @@ function openTooaegModal() {
 
   const kSel = document.getElementById('tm-kasutaja');
   kSel.innerHTML = '';
-  D.kasutajad.forEach(k => kSel.innerHTML += `<option value="${k.id}"${k.id === currentUser.id ? ' selected' : ''}>${k.nimi}</option>`);
+  D.profiilid.forEach(k => kSel.innerHTML += `<option value="${k.id}"${k.id === currentUser.id ? ' selected' : ''}>${k.nimi}</option>`);
 
   const pSel = document.getElementById('tm-partii');
   pSel.innerHTML = '<option value="">Vali partii...</option>';
@@ -3985,21 +4006,17 @@ async function savePartiiEdit() {
 }
 
 (async function restoreSession() {
-  const saved = localStorage.getItem('tj_session');
+  const saved = localStorage.getItem('tj_sess');
   if (!saved) return;
   try {
-    const sess = JSON.parse(saved);
     showLoading(true);
-    // Lae kasutajad
-    const kasutajad = await sb.get('kasutajad', `id=eq.${sess.id}`);
-    if (kasutajad.length === 0) { localStorage.removeItem('tj_session'); showLoading(false); return; }
-    currentUser = kasutajad[0];
-    await laadKoik();
-    startSession();
+    const { refresh_token } = JSON.parse(saved);
+    const sess = await uuendaToken(refresh_token);
+    await alustaSessioon(sess);
   } catch(e) {
     showLoading(false);
-    localStorage.removeItem('tj_session');
-    console.error('Sessiooni taastamine ebaõnnestus:', e);
+    localStorage.removeItem('tj_sess');
+    console.error('Sessiooni taastamine ebaonnestus:', e);
   }
 })();
 </script>
