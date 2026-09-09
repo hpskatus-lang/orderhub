@@ -105,6 +105,8 @@ a { color: inherit; text-decoration: none; }
 .btn:hover { background: var(--bg); }
 .btn:active { transform: translateY(1px); }
 .btn-primary { background: var(--text); color: #fff; border-color: var(--text); }
+.btn-danger { background: #b91c1c; color: #fff; border-color: #b91c1c; }
+.btn-danger:hover { background: #991b1b; }
 .btn-primary:hover { background: #333; }
 .btn-green { background: var(--green); color: #fff; border-color: var(--green); }
 .btn-green:hover { background: #236040; }
@@ -599,6 +601,35 @@ a { color: inherit; text-decoration: none; }
           </div>
           <button class="btn btn-primary mt8" onclick="addMaterjal()">Lisa lattu</button>
         </div>
+        <div class="card">
+          <div class="card-title">Uus materjal</div>
+          <div class="g2">
+            <div class="form-row">
+              <label class="form-label">Nimetus *</label>
+              <input type="text" id="uusmat-nimi" placeholder="nt Paberkott 1kg">
+            </div>
+            <div class="form-row">
+              <label class="form-label">Algkogus laos</label>
+              <input type="number" id="uusmat-kogus" value="0" min="0">
+            </div>
+          </div>
+          <div class="g2">
+            <div class="form-row">
+              <label class="form-label">Piirm\u00E4\u00E4r (hoiatus alla selle)</label>
+              <input type="number" id="uusmat-piir" value="20" min="0">
+            </div>
+            <div class="form-row">
+              <label class="form-label">\u00DChik</label>
+              <select id="uusmat-yhik">
+                <option value="tk">tk</option>
+                <option value="rull">rull</option>
+                <option value="pakk">pakk</option>
+                <option value="kg">kg</option>
+              </select>
+            </div>
+          </div>
+          <button class="btn btn-primary mt8" onclick="looMaterjal()">Loo materjal</button>
+        </div>
       </div>
 
       <!-- TELLIMUSED -->
@@ -1033,9 +1064,9 @@ a { color: inherit; text-decoration: none; }
             <div class="pdf-title" id="pdf-nr">Saateleht</div>
             <div class="text-muted mt8" id="pdf-kpv"></div>
             <div style="margin-top:8px;font-size:11px;line-height:1.8;">
-              <strong>Tammejuure talu OÜ</strong><br>
+              <strong id="pdf-tarnija">—</strong><br>
               Tammejuure, Jüri vald<br>
-              <span class="pdf-mahe">MAHE · EE-ÖKO-01</span>
+              <span class="pdf-mahe" id="pdf-mahe"></span>
             </div>
           </div>
           <div class="pdf-company" id="pdf-klient-info"></div>
@@ -1045,7 +1076,7 @@ a { color: inherit; text-decoration: none; }
           <tbody id="pdf-body"></tbody>
         </table>
         <div class="text-muted mt12" style="font-size:11px;border-top:1px solid var(--border);padding-top:8px;" id="pdf-note">
-          Kõik tooted omakasvatatud mahetoorainest · EE-ÖKO-01
+          <span id="pdf-mahe-note"></span>
         </div>
       </div>
     </div>
@@ -1329,7 +1360,7 @@ a { color: inherit; text-decoration: none; }
       <label class="form-label">Roll</label>
       <select id="ku-roll">
         <option value="admin">Admin</option>
-        <option value="tootja">Tootja (pakkija)</option>
+        <option value="tootaja">Töötaja (pakkija)</option>
         <option value="vaataja">Vaataja</option>
       </select>
     </div>
@@ -1344,8 +1375,8 @@ a { color: inherit; text-decoration: none; }
 // ============================================================
 // SUPABASE
 // ============================================================
-const SB_URL = 'https://tqasninmswvtnfyyfbsa.supabase.co';
-const SB_KEY = 'sb_publishable_XafdwOsflfCyZYpTVV_C5g_oHLZw6W3';
+const SB_URL = 'PANE_SIIA_UUE_PROJEKTI_URL';
+const SB_KEY = 'PANE_SIIA_UUE_PROJEKTI_ANON_KEY';
 
 // Sisselogitud kasutaja token. Ilma selleta naeb RLS meid anonuumsena.
 let SB_TOKEN = null;
@@ -1400,6 +1431,8 @@ async function laadKoik() {
   try {
     // Tarnija tuleb sisselogitud kasutaja profiilist. RLS hoolitseb ylejaanu eest.
     D.tarnija_id = currentUser.tarnija_id;
+    const tRida = await sb.get('tarnijad', `id=eq.${D.tarnija_id}`);
+    D.tarnija = tRida[0] || {};
     const tid = D.tarnija_id;
 
     const [tooted, suurused, partiid, kasutajad, kliendid, tingimused,
@@ -1463,6 +1496,11 @@ function fmtDateTime(s) { if (!s) return '—'; return new Date(s).toLocaleStrin
 
 function getToode(id) { return D.tooted.find(t => t.id === id) || { nimi: '—', yhik: 'tk', parim_enne_paevad: 365 }; }
 function getKlient(id) { return D.kliendid.find(k => k.id === id) || { nimi: '—' }; }
+// Tarnija andmed — ei ole enam koodi sisse kirjutatud
+function maheKood()   { return D.tarnija?.mahe_kood || ''; }
+function tarnijaNimi(){ return D.tarnija?.nimi || ''; }
+function maheSilt()   { return maheKood() ? 'MAHE \u00B7 ' + maheKood() : ''; }
+
 function getKasutaja(id) { return D.profiilid.find(k => k.id === id) || { nimi: '—' }; }
 function getPartii(id) { return D.partiid.find(p => p.id === id) || null; }
 
@@ -1715,12 +1753,20 @@ function guardVaataja() {
   return false;
 }
 
+function taidaTarnijaValjad() {
+  const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+  set('pdf-tarnija', tarnijaNimi());
+  set('pdf-mahe', maheSilt());
+  set('pdf-mahe-note', maheKood()
+    ? 'K\u00F5ik tooted omakasvatatud mahetoorainest \u00B7 ' + maheKood() : '');
+}
+
 function startSession() {
   document.getElementById('login-screen').style.display = 'none';
   if (['omanik','admin','vaataja'].includes(currentUser.roll)) {
     document.getElementById('app').style.display = 'flex';
     document.getElementById('sb-name').textContent = currentUser.nimi;
-    document.getElementById('sb-role').textContent = currentUser.roll === 'admin' ? 'Administraator' : 'Vaataja (ainult lugemine)';
+    document.getElementById('sb-role').textContent = ({omanik:'Omanik', admin:'Administraator', vaataja:'Vaataja (ainult lugemine)'})[currentUser.roll] || currentUser.roll;
     document.getElementById('topbar-date').textContent = new Date().toLocaleDateString('et-EE', { weekday:'long', day:'numeric', month:'long' });
     if (isVaataja()) {
       // Peida kirjutamist nõudvad vaated
@@ -1729,6 +1775,7 @@ function startSession() {
         if (el) el.style.display = 'none';
       });
     }
+    taidaTarnijaValjad();
     renderDashboard();
   } else {
     document.getElementById('pakkija-screen').style.display = 'block';
@@ -2013,7 +2060,7 @@ function showPartiiDetail(id) {
         <div><strong>${t.nimi}</strong> — Partii ${p.partii_nr}</div>
         <span class="badge ${p.staatus==='aktiivne'?'b-green':'b-gray'}">${p.staatus}</span>
       </div>
-      <div class="text-muted mb16">Toodetud: ${fmtDate(p.tootmiskuupaev)} · Parim enne: ${fmtDate(p.parim_enne)} · Mahe EE-ÖKO-01</div>
+      <div class="text-muted mb16">Toodetud: ${fmtDate(p.tootmiskuupaev)} · Parim enne: ${fmtDate(p.parim_enne)} ${maheSilt() ? ' · ' + maheSilt() : ''}</div>
       <div class="g4 mb16">
         <div class="metric"><div class="metric-label">Pakitud</div><div class="metric-value">${pakitud}</div></div>
         <div class="metric"><div class="metric-label">Müüdud</div><div class="metric-value">${myydud}</div></div>
@@ -2392,7 +2439,8 @@ function renderMaterjalid() {
       <td>${m.kogus_laos} tk</td>
       <td>${m.piirmaer} tk</td>
       <td><span class="badge ${cls}">${olek}</span></td>
-      <td><button class="btn btn-sm" onclick="updatePiirmaer('${m.id}', ${m.piirmaer})">Piirmäär</button></td>
+      <td><button class="btn btn-sm" onclick="updatePiirmaer('${m.id}', ${m.piirmaer})">Piirmäär</button>
+          <button class="btn btn-sm btn-danger" onclick="kustutaMaterjal('${m.id}')">Kustuta</button></td>
     </tr>`;
   });
   const sel = document.getElementById('mat-sel');
@@ -2411,6 +2459,49 @@ async function addMaterjal() {
     await sb.patch('materjalid', `id=eq.${id}`, { kogus_laos: m.kogus_laos });
     await sb.post('materjali_liikumised', { materjal_id: id, muutus: kogus, pohjus: 'sisseost', kasutaja_id: currentUser.id });
     toast(m.nimetus + ': +' + kogus + ' tk lisatud', 'green');
+    renderMaterjalid();
+  } catch(e) { toast('Viga: ' + e.message, 'red'); }
+}
+
+async function looMaterjal() {
+  if (guardVaataja()) return;
+  const nimi = document.getElementById('uusmat-nimi').value.trim();
+  if (!nimi) { toast('Sisesta nimetus!', 'warn'); return; }
+  if (D.materjalid.some(m => m.nimetus.toLowerCase() === nimi.toLowerCase())) {
+    toast('Sellise nimega materjal on juba olemas', 'warn'); return;
+  }
+  const kogus = parseInt(document.getElementById('uusmat-kogus').value) || 0;
+  const piir  = parseInt(document.getElementById('uusmat-piir').value) || 0;
+  const yhik  = document.getElementById('uusmat-yhik').value;
+  try {
+    const ins = await sb.post('materjalid', {
+      tarnija_id: D.tarnija_id, nimetus: nimi, yhik: yhik,
+      kogus_laos: kogus, piirmaer: piir
+    });
+    D.materjalid.push(ins[0]);
+    if (kogus > 0) {
+      await sb.post('materjali_liikumised', {
+        materjal_id: ins[0].id, muutus: kogus,
+        pohjus: 'algsaldo', kasutaja_id: currentUser.id
+      });
+    }
+    document.getElementById('uusmat-nimi').value = '';
+    document.getElementById('uusmat-kogus').value = '0';
+    toast(nimi + ' loodud', 'green');
+    renderMaterjalid();
+  } catch(e) { toast('Viga: ' + e.message, 'red'); }
+}
+
+async function kustutaMaterjal(id) {
+  if (guardVaataja()) return;
+  const m = D.materjalid.find(x => x.id === id);
+  if (!m) return;
+  if (!confirm('Kustutada materjal "' + m.nimetus + '"?\n\nKogu liikumiste ajalugu kaob samuti.')) return;
+  try {
+    await sb.del('materjali_liikumised', `materjal_id=eq.${id}`);
+    await sb.del('materjalid', `id=eq.${id}`);
+    D.materjalid = D.materjalid.filter(x => x.id !== id);
+    toast(m.nimetus + ' kustutatud', 'green');
     renderMaterjalid();
   } catch(e) { toast('Viga: ' + e.message, 'red'); }
 }
@@ -2809,7 +2900,7 @@ function genRaport() {
 
   let html = `<div class="card mt16">
     <div class="card-title">Mahe jälgitavus · ${fmtDate(algus)} — ${fmtDate(lopp)}</div>
-    <div class="alert alert-info mb12">Tammejuure talu OÜ · EE-ÖKO-01 · ${partiid.length} partiid</div>
+    <div class="alert alert-info mb12">${tarnijaNimi()}${maheKood() ? " · " + maheKood() : ""} · ${partiid.length} partiid</div>
     <table class="tbl">
       <thead><tr><th>Toode</th><th>Partii nr</th><th>Toodetud</th><th>Parim enne</th><th>Pakitud</th><th>Müüdud</th><th>Mahakantud</th><th>Laos</th><th></th></tr></thead>
       <tbody>`;
@@ -3182,6 +3273,7 @@ function renderTooted() {
         <div class="flex-gap">
           <button class="btn btn-sm" onclick="openToodeEdit('${t.id}')">✏️ Muuda</button>
           <button class="btn btn-sm" onclick="toggleToodeAktiivne('${t.id}')">${t.aktiivne !== false ? 'Peida' : 'Näita'}</button>
+          <button class="btn btn-sm btn-danger" onclick="kustutaToode('${t.id}')">Kustuta</button>
         </div>
       </div>
       <div class="flex-gap">
@@ -3310,6 +3402,34 @@ async function saveToodeEdit() {
     renderTooted();
     toast('Toode uuendatud!', 'green');
   } catch(e) { toast('Viga: ' + e.message, 'red'); }
+}
+
+async function kustutaToode(id) {
+  if (guardVaataja()) return;
+  const t = D.tooted.find(x => x.id === id);
+  if (!t) return;
+
+  // Kontrolli, kas toode on juba kasutuses
+  const partiisid = D.partiid.filter(p => p.toode_id === id).length;
+  const ridu = D.tellimuse_read.filter(r => r.toode_id === id).length;
+  if (partiisid || ridu) {
+    alert('"' + t.nimi + '" ei saa kustutada.\n\n' +
+          'Seotud: ' + partiisid + ' partiid, ' + ridu + ' tellimuse rida.\n\n' +
+          'Kasuta "Peida" \u2014 toode kaob nimekirjast, aga ajalugu j\u00E4\u00E4b alles.');
+    return;
+  }
+  if (!confirm('Kustutada toode "' + t.nimi + '"?\n\nSuurused ja laosaldo kaovad samuti.')) return;
+
+  try {
+    await sb.del('tooted', `id=eq.${id}`);
+    D.tooted = D.tooted.filter(x => x.id !== id);
+    D.toote_suurused = D.toote_suurused.filter(x => x.toode_id !== id);
+    D.ladu_cache = D.ladu_cache.filter(x => x.toode_id !== id);
+    toast(t.nimi + ' kustutatud', 'green');
+    renderTooted();
+  } catch(e) {
+    toast('Viga: ' + e.message, 'red');
+  }
 }
 
 async function toggleToodeAktiivne(id) {
@@ -3750,7 +3870,7 @@ function renderTooaegView() {
   // Täida filter kasutajad
   const sel = document.getElementById('ta-f-kasutaja');
   if (sel.options.length <= 1) {
-    D.profiilid.filter(k => k.roll === 'tootja' || k.roll === 'admin').forEach(k => {
+    D.profiilid.filter(k => k.roll !== 'vaataja').forEach(k => {
       sel.innerHTML += `<option value="${k.id}">${k.nimi}</option>`;
     });
   }
