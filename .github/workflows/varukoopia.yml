@@ -1,0 +1,77 @@
+name: Varukoopia
+
+# Iga paev kell 22:00 UTC (Eesti aeg ~00:00 / 01:00).
+# Ekspordib koik tabelid JSON-ina ja salvestab repo kausta varukoopiad/.
+
+on:
+  schedule:
+    - cron: "0 22 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  varunda:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Ekspordi tabelid
+        env:
+          URL: ${{ secrets.SUPABASE_URL }}
+          KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          set -e
+          KUUP=$(date +%Y-%m-%d)
+          KAUST="varukoopiad/$KUUP"
+          mkdir -p "$KAUST"
+
+          TABELID="tarnijad profiilid seaded tooted toote_suurused kliendid \
+                   kliendi_tingimused saabunud tellimused tellimuse_read \
+                   partiid tellimuse_partiid ladu_cache ladu_parandused \
+                   ladu_piirmaarad mahakandmised materjalid materjali_liikumised \
+                   tootmissessioonid tootmissessiooni_read teavitused sundmused"
+
+          KOKKU=0
+          for t in $TABELID; do
+            kood=$(curl -s -o "$KAUST/$t.json" -w "%{http_code}" \
+              "$URL/rest/v1/$t?select=*" \
+              -H "apikey: $KEY" \
+              -H "Authorization: Bearer $KEY")
+
+            if [ "$kood" != "200" ]; then
+              echo "VIGA: $t andis HTTP $kood"
+              cat "$KAUST/$t.json"
+              exit 1
+            fi
+
+            ridu=$(python3 -c "import json,sys;print(len(json.load(open('$KAUST/$t.json'))))")
+            KOKKU=$((KOKKU + ridu))
+            printf "  %-24s %s rida\n" "$t" "$ridu"
+          done
+
+          echo "Kokku $KOKKU rida."
+          echo "KOKKU=$KOKKU" >> $GITHUB_ENV
+          echo "KUUP=$KUUP"   >> $GITHUB_ENV
+
+      # Hoiame 90 paeva. Vanemad kustutatakse, et repo ei paisuks.
+      - name: Koristus
+        run: |
+          cd varukoopiad 2>/dev/null || exit 0
+          ls -1d 20* 2>/dev/null | sort | head -n -90 | while read v; do
+            echo "Kustutan vana: $v"
+            rm -rf "$v"
+          done
+
+      - name: Salvesta
+        run: |
+          git config user.name  "Varukoopia"
+          git config user.email "actions@github.com"
+          git add varukoopiad
+          if git diff --staged --quiet; then
+            echo "Muudatusi pole."
+          else
+            git commit -m "Varukoopia $KUUP ($KOKKU rida)"
+            git push
+          fi
