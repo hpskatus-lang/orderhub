@@ -196,9 +196,19 @@ a { color: inherit; text-decoration: none; }
 #pdf-modal .modal-box { max-width: 680px; }
 .pdf-area { border: 1px solid var(--border); border-radius: var(--r); padding: 28px; margin-bottom: 16px; font-size: 13px; }
 .pdf-header { display: flex; justify-content: space-between; margin-bottom: 20px; }
-.pdf-company { font-size: 11px; line-height: 1.8; color: var(--text2); }
+.pdf-company { font-size: 12px; line-height: 1.7; color: var(--text); max-width: 280px; }
+.pdf-company .silt2 { font-size: 10px; color: var(--text2); letter-spacing:.04em; }
+.pdf-company b { font-size: 14px; }
 .pdf-title { font-size: 22px; font-weight: 700; letter-spacing: -0.5px; }
 .pdf-mahe { color: var(--green); font-weight: 600; font-size: 12px; }
+.sildid { display:grid; grid-template-columns:repeat(3,1fr); gap:6px; }
+.silt-k { border:1px solid #999; border-radius:4px; padding:8px 9px; background:#fff; color:#111;
+          font-size:10px; line-height:1.35; break-inside:avoid; }
+.silt-k .n { font-size:12.5px; font-weight:700; }
+.silt-k .pe { font-size:12px; font-weight:700; margin-top:3px; }
+.silt-k svg { width:100%; height:26px; margin-top:4px; }
+.silt-k .nr { font-family:monospace; font-size:9px; letter-spacing:.07em; text-align:center; }
+@media print { .eiprindi, .modal-footer { display:none !important; } .sildid { grid-template-columns:repeat(3,1fr); } }
 @media print {
   body * { visibility: hidden; }
   .print-area, .print-area * { visibility: visible; }
@@ -276,7 +286,7 @@ a { color: inherit; text-decoration: none; }
       <div class="sb-logo-sub">Laohaldus v1.0</div>
     </div>
     <div id="sb-vaheta" style="display:none;padding:0 14px 10px">
-      <button class="btn btn-sm" style="width:100%" onclick="naitaPakkijaVaadet()">\u{1F4E6} Vaata pakkijana</button>
+      <button class="btn btn-sm" style="width:100%" onclick="naitaPakkijaVaadet()">📦 Vaata pakkijana</button>
     </div>
     <div class="sb-section">
       <div class="sb-section-label">Ülevaade</div>
@@ -659,6 +669,10 @@ a { color: inherit; text-decoration: none; }
                   <option value="">Vali klient...</option>
                 </select>
                 <button class="btn btn-sm mt8" onclick="openModal('klient-modal')">+ Lisa uus klient</button>
+              </div>
+              <div class="form-row" id="t-tk-row" style="display:none">
+                <label class="form-label">Tarnekoht</label>
+                <select id="t-tarnekoht"></select>
               </div>
               <div class="form-row">
                 <label class="form-label">Kanal</label>
@@ -1059,6 +1073,56 @@ a { color: inherit; text-decoration: none; }
 </div>
 
 <!-- PDF MODAL -->
+<div id="tk-modal" class="modal-overlay">
+  <div class="modal-box" style="max-width:720px">
+    <div class="modal-title" id="tk-title">Tarnekohad</div>
+    <table class="tbl"><thead><tr><th>Nimi</th><th>Aadress</th><th>Kontakt</th><th>Märkus</th><th></th></tr></thead>
+      <tbody id="tk-body"></tbody></table>
+    <div class="card mt12">
+      <div class="card-title">Lisa tarnekoht</div>
+      <div class="g2">
+        <div class="form-row"><label class="form-label">Nimi *</label>
+          <input type="text" id="tk-nimi" placeholder="nt Selver Kristiine"></div>
+        <div class="form-row"><label class="form-label">Aadress</label>
+          <input type="text" id="tk-aadress"></div>
+      </div>
+      <div class="g2">
+        <div class="form-row"><label class="form-label">Kontaktisik</label>
+          <input type="text" id="tk-kontakt"></div>
+        <div class="form-row"><label class="form-label">Telefon</label>
+          <input type="text" id="tk-tel"></div>
+      </div>
+      <div class="form-row"><label class="form-label">Märkus saatelehele</label>
+        <input type="text" id="tk-markus" placeholder="nt tarne ainult hommikul"></div>
+      <button class="btn btn-primary mt8" onclick="salvestaTarnekoht()">Lisa</button>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('tk-modal')">Sulge</button>
+    </div>
+  </div>
+</div>
+
+<div id="sildi-modal" class="modal-overlay">
+  <div class="modal-box" style="max-width:760px">
+    <div class="modal-title">Partiisildid</div>
+    <div class="g2 eiprindi">
+      <div class="form-row">
+        <label class="form-label">Mitu silti?</label>
+        <input type="number" id="sildi-arv" value="12" min="1" max="200" oninput="joonistaSildid()">
+      </div>
+      <div class="form-row">
+        <label class="form-label">Suurus</label>
+        <select id="sildi-suurus" onchange="joonistaSildid()"></select>
+      </div>
+    </div>
+    <div class="print-area" id="sildi-ala"></div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="window.print()">Prindi sildid</button>
+      <button class="btn" onclick="closeModal('sildi-modal')">Sulge</button>
+    </div>
+  </div>
+</div>
+
 <div id="pdf-modal" class="modal-overlay">
   <div class="modal-box" style="max-width:680px;">
     <div class="print-area" id="pdf-print-area">
@@ -1076,7 +1140,7 @@ a { color: inherit; text-decoration: none; }
           <div class="pdf-company" id="pdf-klient-info"></div>
         </div>
         <table class="tbl" style="margin-top:16px;">
-          <thead><tr><th>Toode</th><th>Suurus</th><th>Partii nr</th><th>Kogus</th><th>Ühik</th></tr></thead>
+          <thead><tr><th>Toode</th><th>Partii nr</th><th>Kogus</th></tr></thead>
           <tbody id="pdf-body"></tbody>
         </table>
         <div class="text-muted mt12" style="font-size:11px;border-top:1px solid var(--border);padding-top:8px;" id="pdf-note">
@@ -1437,6 +1501,8 @@ async function laadKoik() {
     D.tarnija_id = currentUser.tarnija_id;
     const tRida = await sb.get('tarnijad', `id=eq.${D.tarnija_id}`);
     D.tarnija = tRida[0] || {};
+    try { D.tarnekohad = await sb.get('tarnekohad', `tarnija_id=eq.${D.tarnija_id}`); }
+    catch(e){ D.tarnekohad = []; }
     const tid = D.tarnija_id;
 
     const [tooted, suurused, partiid, kasutajad, kliendid, tingimused,
@@ -1978,6 +2044,7 @@ function renderPartiid() {
         <div class="flex-gap">
           <button class="btn btn-sm" onclick="openPartiiEdit('${p.id}')">✏️</button>
           <button class="btn btn-sm" onclick="showPartiiDetail('${p.id}')">Detail</button>
+          <button class="btn btn-sm" onclick="avaSildid('${p.id}')">Sildid</button>
           <button class="btn btn-sm" onclick="togglePartiiSuletud('${p.id}')">${p.staatus === 'aktiivne' ? 'Sulge' : 'Ava'}</button>
         </div>
       </td>
@@ -2600,7 +2667,20 @@ function updateTAddSuurused() {
   getSuurused(toode_id).forEach(s => sel.innerHTML += `<option value="${s.suurus}">${s.suurus}</option>`);
 }
 
+function taidaTarnekohad(){
+  const kid = document.getElementById('t-klient').value;
+  const rida = document.getElementById('t-tk-row');
+  const sel  = document.getElementById('t-tarnekoht');
+  const kohad = (D.tarnekohad||[]).filter(x => x.klient_id === kid && x.aktiivne !== false);
+  if (!kohad.length){ rida.style.display = 'none'; sel.innerHTML = ''; return; }
+  rida.style.display = 'block';
+  sel.innerHTML = kohad.map(x =>
+    `<option value="${x.id}"${x.on_vaikimisi ? ' selected' : ''}>${x.nimi}${x.aadress ? ' — ' + x.aadress : ''}</option>`
+  ).join('');
+}
+
 function showKlientTingimused() {
+  taidaTarnekohad();
   const klient_id = document.getElementById('t-klient').value;
   const el = document.getElementById('t-klient-tingimused');
   if (!klient_id) { el.innerHTML = ''; return; }
@@ -2656,8 +2736,10 @@ async function saveTellimus() {
   if (telItems.length === 0) { toast('Lisa vähemalt üks toode!', 'warn'); return; }
 
   try {
+    const tkSel = document.getElementById('t-tarnekoht');
     const tel = await sb.post('tellimused', {
       tarnija_id: D.tarnija_id, klient_id,
+      tarnekoht_id: (tkSel && tkSel.value) ? tkSel.value : null,
       kanal: document.getElementById('t-kanal').value,
       markus: document.getElementById('t-markus').value,
       staatus: 'uus', lisas_kasutaja_id: currentUser.id
@@ -2752,9 +2834,25 @@ function openPdf(tel_id) {
   const t = D.tellimused.find(x => x.id === tel_id);
   if (!t) return;
   const kl = getKlient(t.klient_id);
-  document.getElementById('pdf-nr').textContent = 'Saateleht · ' + fmtDate(t.loodud);
-  document.getElementById('pdf-kpv').textContent = 'Kuupäev: ' + fmtDate(t.loodud);
-  document.getElementById('pdf-klient-info').innerHTML = `<strong>${kl.nimi}</strong><br>${kl.reg_nr ? 'Reg: ' + kl.reg_nr + '<br>' : ''}${kl.aadress || ''}<br>${kl.email || ''}`;
+  document.getElementById('pdf-nr').textContent = 'Saateleht ' + (t.saatelehe_nr || '');
+  document.getElementById('pdf-kpv').textContent = fmtDate(t.loodud);
+
+  const tk = (D.tarnekohad || []).find(x => x.id === t.tarnekoht_id);
+  const osad = [];
+  osad.push('<div class="silt2">Saaja</div><b>' + kl.nimi + '</b>');
+  if (kl.reg_nr) osad.push('Reg ' + kl.reg_nr);
+  if (tk){
+    osad.push('<div class="silt2" style="margin-top:8px">Tarnekoht</div><b>' + tk.nimi + '</b>');
+    if (tk.aadress) osad.push(tk.aadress);
+    if (tk.kontakt) osad.push(tk.kontakt + (tk.tel ? ' · ' + tk.tel : ''));
+    else if (tk.tel) osad.push(tk.tel);
+    if (tk.markus) osad.push('<i>' + tk.markus + '</i>');
+  } else {
+    if (kl.aadress) osad.push(kl.aadress);
+    if (kl.tel) osad.push(kl.tel);
+    if (kl.email) osad.push(kl.email);
+  }
+  document.getElementById('pdf-klient-info').innerHTML = osad.join('<br>');
 
   const read = D.tellimuse_read.filter(r => r.tellimus_id === tel_id);
   const tbody = document.getElementById('pdf-body');
@@ -2763,21 +2861,84 @@ function openPdf(tel_id) {
     const toode = getToode(r.toode_id);
     const partiid = D.tellimuse_partiid.filter(tp => tp.tellimuse_rida_id === r.id);
     if (partiid.length === 0) {
-      tbody.innerHTML += `<tr><td>${toode.nimi}</td><td>${r.suurus}</td><td style="color:var(--red-text);">—</td><td>${r.kogus_tk}</td><td>${toode.yhik}</td></tr>`;
+      tbody.innerHTML += `<tr><td>${toode.nimi} ${r.suurus||''}</td><td style="color:var(--red-text);">partii määramata</td><td>${r.kogus_tk} ${toode.yhik}</td></tr>`;
     } else {
       partiid.forEach((tp, i) => {
         const p = getPartii(tp.partii_id);
         tbody.innerHTML += `<tr>
-          <td>${i === 0 ? toode.nimi : ''}</td>
-          <td>${i === 0 ? r.suurus : ''}</td>
+          <td>${i === 0 ? toode.nimi + ' ' + (r.suurus||'') : ''}</td>
           <td style="font-weight:600;">${p ? p.partii_nr : '—'}</td>
-          <td>${tp.kogus_tk}</td>
-          <td>${toode.yhik}</td>
+          <td>${tp.kogus_tk} ${toode.yhik}</td>
         </tr>`;
       });
     }
   });
   openModal('pdf-modal');
+}
+
+// ============================================================
+// PARTIISILDID
+// Kuupäev tuleb partiikirjest — käsitsi kirjutamist ei ole.
+// ============================================================
+let sildiPartii = null;
+
+function avaSildid(partii_id){
+  sildiPartii = D.partiid.find(p => p.id === partii_id);
+  if (!sildiPartii) return;
+  const sel = document.getElementById('sildi-suurus');
+  const suurused = D.toote_suurused.filter(x => x.toode_id === sildiPartii.toode_id && x.aktiivne !== false);
+  sel.innerHTML = suurused.length
+    ? suurused.map(x => `<option value="${x.suurus}">${x.suurus}</option>`).join('')
+    : '<option value="">—</option>';
+  joonistaSildid();
+  openModal('sildi-modal');
+}
+
+function joonistaSildid(){
+  const p = sildiPartii;
+  if (!p) return;
+  const t = getToode(p.toode_id);
+  const arv = Math.min(200, Math.max(1, parseInt(document.getElementById('sildi-arv').value) || 1));
+  const suurus = document.getElementById('sildi-suurus').value;
+  let h = '';
+  for (let i = 0; i < arv; i++){
+    h += '<div class="silt-k">' +
+      '<div class="n">' + t.nimi + (suurus ? ' ' + suurus : '') + '</div>' +
+      (maheKood() ? '<div>' + maheKood() + '</div>' : '') +
+      '<div>Partii ' + p.partii_nr + '</div>' +
+      '<div class="pe">Parim enne ' + (p.parim_enne ? fmtDate(p.parim_enne) : '—') + '</div>' +
+      code39(p.partii_nr) +
+      '<div class="nr">' + p.partii_nr + '</div>' +
+    '</div>';
+  }
+  document.getElementById('sildi-ala').innerHTML = '<div class="sildid">' + h + '</div>';
+}
+
+// Code 39 — ainult tähed ja numbrid, et skanner ei eksiks
+const C39 = {'0':'nnnwwnwnn','1':'wnnwnnnnw','2':'nnwwnnnnw','3':'wnwwnnnnn','4':'nnnwwnnnw',
+ '5':'wnnwwnnnn','6':'nnwwwnnnn','7':'nnnwnnwnw','8':'wnnwnnwnn','9':'nnwwnnwnn',
+ 'A':'wnnnnwnnw','B':'nnwnnwnnw','C':'wnwnnwnnn','D':'nnnnwwnnw','E':'wnnnwwnnn',
+ 'F':'nnwnwwnnn','G':'nnnnnwwnw','H':'wnnnnwwnn','I':'nnwnnwwnn','J':'nnnnwwwnn',
+ 'K':'wnnnnnnww','L':'nnwnnnnww','M':'wnwnnnnwn','N':'nnnnwnnww','O':'wnnnwnnwn',
+ 'P':'nnwnwnnwn','Q':'nnnnnnwww','R':'wnnnnnwwn','S':'nnwnnnwwn','T':'nnnnwnwwn',
+ 'U':'wwnnnnnnw','V':'nwwnnnnnw','W':'wwwnnnnnn','X':'nwnnwnnnw','Y':'wwnnwnnnn',
+ 'Z':'nwwnwnnnn','*':'nwnnwnwnn'};
+
+function code39(tekst){
+  const kitsas = 2, lai = 5, korgus = 40;
+  let x = 0, ribad = '';
+  const puhas = (tekst||'').toUpperCase().replace(/[^A-Z0-9]/g,'');
+  for (const m of ('*' + puhas + '*')){
+    const muster = C39[m];
+    if (!muster) continue;
+    for (let i = 0; i < 9; i++){
+      const w = muster[i] === 'w' ? lai : kitsas;
+      if (i % 2 === 0) ribad += '<rect x="'+x+'" y="0" width="'+w+'" height="'+korgus+'"/>';
+      x += w;
+    }
+    x += kitsas;
+  }
+  return '<svg viewBox="0 0 '+x+' '+korgus+'" preserveAspectRatio="none">'+ribad+'</svg>';
 }
 
 // ============================================================
@@ -2798,6 +2959,7 @@ function renderKliendid() {
       <td>
         <div class="flex-gap">
           <button class="btn btn-sm" onclick="showKlientAjalugu('${k.id}')">📋 ${telCount}</button>
+          <button class="btn btn-sm" onclick="avaTarnekohad('${k.id}')">Kohad ${(D.tarnekohad||[]).filter(x=>x.klient_id===k.id).length||''}</button>
           <button class="btn btn-sm" onclick="openKlientEdit('${k.id}')">✏️</button>
           <button class="btn btn-sm btn-red" onclick="deleteKlient('${k.id}')">×</button>
         </div>
@@ -2805,6 +2967,62 @@ function renderKliendid() {
     </tr>`;
   });
   if (D.kliendid.length === 0) tbody.innerHTML = '<tr><td colspan="6" class="tbl-empty">Kliente pole lisatud</td></tr>';
+}
+
+let tkKlient = null;
+
+function avaTarnekohad(klient_id){
+  tkKlient = klient_id;
+  const k = getKlient(klient_id);
+  document.getElementById('tk-title').textContent = 'Tarnekohad — ' + k.nimi;
+  joonistaTarnekohad();
+  openModal('tk-modal');
+}
+
+function joonistaTarnekohad(){
+  const kohad = (D.tarnekohad||[]).filter(x => x.klient_id === tkKlient);
+  const tb = document.getElementById('tk-body');
+  tb.innerHTML = kohad.length ? kohad.map(x => `<tr>
+    <td><strong>${x.nimi}</strong>${x.on_vaikimisi ? ' <span class="badge b-blue">vaikimisi</span>' : ''}</td>
+    <td>${x.aadress || '—'}</td>
+    <td>${x.kontakt || '—'}${x.tel ? '<br>' + x.tel : ''}</td>
+    <td>${x.markus || '—'}</td>
+    <td><button class="btn btn-sm btn-danger" onclick="kustutaTarnekoht('${x.id}')">×</button></td>
+  </tr>`).join('') : '<tr><td colspan="5" class="tbl-empty">Tarnekohti pole</td></tr>';
+}
+
+async function salvestaTarnekoht(){
+  if (guardVaataja()) return;
+  const nimi = document.getElementById('tk-nimi').value.trim();
+  if (!nimi){ toast('Sisesta nimi!', 'warn'); return; }
+  const olemas = (D.tarnekohad||[]).filter(x => x.klient_id === tkKlient).length;
+  try {
+    const ins = await sb.post('tarnekohad', {
+      tarnija_id: D.tarnija_id, klient_id: tkKlient, nimi,
+      aadress: document.getElementById('tk-aadress').value.trim() || null,
+      kontakt: document.getElementById('tk-kontakt').value.trim() || null,
+      tel:     document.getElementById('tk-tel').value.trim() || null,
+      markus:  document.getElementById('tk-markus').value.trim() || null,
+      on_vaikimisi: olemas === 0
+    });
+    D.tarnekohad = D.tarnekohad || [];
+    D.tarnekohad.push(ins[0]);
+    ['tk-nimi','tk-aadress','tk-kontakt','tk-tel','tk-markus'].forEach(x =>
+      document.getElementById(x).value = '');
+    toast(nimi + ' lisatud', 'green');
+    joonistaTarnekohad();
+  } catch(e){ toast('Viga: ' + e.message, 'red'); }
+}
+
+async function kustutaTarnekoht(id){
+  if (guardVaataja()) return;
+  const x = D.tarnekohad.find(y => y.id === id);
+  if (!confirm('Kustutada tarnekoht "' + x.nimi + '"?')) return;
+  try {
+    await sb.del('tarnekohad', `id=eq.${id}`);
+    D.tarnekohad = D.tarnekohad.filter(y => y.id !== id);
+    joonistaTarnekohad();
+  } catch(e){ toast('Viga: ' + e.message + ' (kas mõni tellimus viitab sellele?)', 'red'); }
 }
 
 function openKlientEdit(id) {
