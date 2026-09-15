@@ -883,7 +883,7 @@ a { color: inherit; text-decoration: none; }
           <div class="card">
             <div class="card-header">
               <div class="card-title" style="margin:0">Kasutajad</div>
-              <button class="btn btn-primary" onclick="openModal('kasutaja-modal')">+ Lisa kasutaja</button>
+              <button class="btn btn-primary" onclick="document.getElementById('ku-juhis').style.display='none';openModal('kasutaja-modal')">+ Lisa kasutaja</button>
             </div>
             <table class="tbl">
               <thead><tr><th>Nimi</th><th>Kasutajanimi</th><th>Roll</th><th>Viimane login</th></tr></thead>
@@ -1344,29 +1344,29 @@ a { color: inherit; text-decoration: none; }
 <div id="kasutaja-modal" class="modal-overlay">
   <div class="modal-box">
     <div class="modal-title">Lisa kasutaja</div>
+    <div class="alert alert-info mb12" style="font-size:12px;line-height:1.5">
+      Kasutaja luuakse kahes sammus. T\u00E4ida allolev vorm, siis saad valmis juhise.
+    </div>
     <div class="form-row">
       <label class="form-label">Nimi <span>*</span></label>
-      <input type="text" id="ku-nimi">
+      <input type="text" id="ku-nimi" placeholder="nt Karin Kask">
     </div>
     <div class="form-row">
-      <label class="form-label">Kasutajanimi <span>*</span></label>
-      <input type="text" id="ku-user">
-    </div>
-    <div class="form-row">
-      <label class="form-label">Parool <span>*</span></label>
-      <input type="text" id="ku-pass">
+      <label class="form-label">E-post <span>*</span></label>
+      <input type="email" id="ku-user" placeholder="karin@tammejuure.ee">
     </div>
     <div class="form-row">
       <label class="form-label">Roll</label>
       <select id="ku-roll">
+        <option value="tootaja">T\u00F6\u00F6taja (pakkija)</option>
+        <option value="vaataja">Vaataja (ainult lugemine)</option>
         <option value="admin">Admin</option>
-        <option value="tootaja">Töötaja (pakkija)</option>
-        <option value="vaataja">Vaataja</option>
       </select>
     </div>
+    <div id="ku-juhis" style="display:none"></div>
     <div class="modal-footer">
-      <button class="btn btn-primary" onclick="saveKasutaja()">Salvesta</button>
-      <button class="btn" onclick="closeModal('kasutaja-modal')">Tühista</button>
+      <button class="btn btn-primary" onclick="saveKasutaja()">N\u00E4ita juhist</button>
+      <button class="btn" onclick="closeModal('kasutaja-modal')">Sulge</button>
     </div>
   </div>
 </div>
@@ -2942,8 +2942,44 @@ function renderKasutajad() {
   });
 }
 
-async function saveKasutaja() {
-  toast('Uus kasutaja luuakse Supabase Authentication all, siis lisatakse profiilid tabelisse.', 'warn');
+function saveKasutaja() {
+  const nimi  = document.getElementById('ku-nimi').value.trim();
+  const email = document.getElementById('ku-user').value.trim();
+  const roll  = document.getElementById('ku-roll').value;
+  if (!nimi || !email) { toast('T\u00E4ida nimi ja e-post!', 'warn'); return; }
+
+  const sql =
+    "insert into profiilid (id, tarnija_id, nimi, roll)\n" +
+    "select u.id, t.id, '" + nimi.replace(/'/g, "''") + "', '" + roll + "'\n" +
+    "from auth.users u\n" +
+    "cross join tarnijad t\n" +
+    "where u.email = '" + email.replace(/'/g, "''") + "'\n" +
+    "  and t.id = '" + D.tarnija_id + "';";
+
+  const box = document.getElementById('ku-juhis');
+  box.style.display = 'block';
+  box.innerHTML =
+    '<div class="alert alert-info mb12" style="font-size:12px;line-height:1.6">' +
+      '<strong>1. samm \u2014 Supabase\u2019is</strong><br>' +
+      'Authentication \u2192 Users \u2192 Add user \u2192 Create new user<br>' +
+      'E-post: <strong>' + email + '</strong><br>' +
+      'Parool: pane ise ja anna see kasutajale edasi<br>' +
+      'M\u00E4rgi \u201CAuto Confirm User\u201D \u2014 muidu ootab kinnituskirja' +
+    '</div>' +
+    '<div class="alert alert-info" style="font-size:12px;line-height:1.6">' +
+      '<strong>2. samm \u2014 SQL Editoris</strong><br>' +
+      '<textarea readonly id="ku-sql" style="width:100%;height:110px;font-family:monospace;' +
+      'font-size:11px;margin-top:6px;padding:6px">' + sql + '</textarea>' +
+      '<button class="btn btn-sm mt8" onclick="kopeeriSql()">Kopeeri SQL</button>' +
+    '</div>';
+}
+
+function kopeeriSql() {
+  const ta = document.getElementById('ku-sql');
+  ta.select();
+  navigator.clipboard.writeText(ta.value)
+    .then(() => toast('SQL kopeeritud', 'green'))
+    .catch(() => toast('Vajuta Ctrl+C', 'warn'));
 }
 
 function renderPiirid() {
