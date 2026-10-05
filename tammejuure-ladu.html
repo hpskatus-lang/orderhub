@@ -51,6 +51,17 @@ a { color: inherit; text-decoration: none; }
 #content { padding: 24px; flex: 1; max-width: 1200px; }
 
 /* ── SIDEBAR ── */
+.teateriba { margin-bottom:16px; }
+.teade-r { display:flex; align-items:flex-start; gap:10px; padding:10px 14px; border-radius:8px;
+           background:var(--surface); border:1px solid var(--border); margin-bottom:7px; font-size:13.5px; }
+.teade-r.tahtis { border-color:#e0b050; background:#fdf8ec; }
+.teade-r .tekst { flex:1; }
+.teade-r .meta { font-size:11.5px; color:var(--text3); margin-top:3px; }
+.teade-r .x { background:none; border:none; color:var(--text3); cursor:pointer; font-size:17px;
+              line-height:1; padding:0 3px; }
+.teade-r .x:hover { color:#b91c1c; }
+.teade-uus { display:flex; gap:7px; align-items:center; }
+.teade-uus input[type=text] { flex:1; }
 .rida-k { display:flex; align-items:center; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--border); }
 .rida-k:last-child { border-bottom:none; }
 .sb-logo { padding: 16px; border-bottom: 1px solid var(--border); }
@@ -347,6 +358,9 @@ a { color: inherit; text-decoration: none; }
     </div>
 
     <div id="content">
+
+      <div class="teateriba" id="teateriba"></div>
+
 
       <!-- DASHBOARD -->
       <div id="view-dashboard" class="view active">
@@ -957,6 +971,8 @@ a { color: inherit; text-decoration: none; }
     <div class="pkj-tab" id="pkjtab-tellimused" onclick="showPkjTab('tellimused')">Tellimused</div>
   </div>
   <div class="pkj-content">
+    <div class="teateriba" id="teateriba"></div>
+
 
     <!-- PAKKIJA: PAKKIMINE -->
     <div id="pkj-pakkimine">
@@ -1513,6 +1529,8 @@ async function laadKoik() {
     D.tarnija_id = currentUser.tarnija_id;
     const tRida = await sb.get('tarnijad', `id=eq.${D.tarnija_id}`);
     D.tarnija = tRida[0] || {};
+    try { D.teated = await sb.get('teated', `tarnija_id=eq.${D.tarnija_id}&order=loodud.desc&limit=15`); }
+    catch(e){ D.teated = []; }
     try {
       const kr = await sb.get('seaded', `tarnija_id=eq.${D.tarnija_id}&voti=eq.kategooriad`);
       D.kategooriad = kr.length ? JSON.parse(kr[0].vaartus) : null;
@@ -1639,6 +1657,63 @@ async function kustutaKategooria(nimi){
   D.kategooriad = D.kategooriad.filter(k => k !== nimi);
   try { await salvestaKategooriad(); taidaKategooriad(); }
   catch(e){ D.kategooriad = vana; toast('Viga: ' + e.message, 'red'); }
+}
+
+// ============================================================
+// TEATERIBA — nahtav koigile, lisada saavad koik
+// ============================================================
+function joonistaTeated(){
+  const alad = document.querySelectorAll('.teateriba');
+  if (!alad.length) return;
+  const list = (D.teated || []);
+  const admin = ['omanik','admin'].includes(currentUser.roll);
+
+  let h = list.map(t => {
+    const a = (D.profiilid || []).find(p => p.id === t.autor_id);
+    const saabKustutada = admin || t.autor_id === currentUser.id;
+    return `<div class="teade-r ${t.tahtis ? 'tahtis' : ''}">
+      <div class="tekst">${escapeHtml(t.tekst)}
+        <div class="meta">${a ? a.nimi : 'keegi'} · ${fmtKpvAeg(t.loodud)}</div></div>
+      ${saabKustutada ? `<button class="x" title="Kustuta" onclick="kustutaTeade('${t.id}')">×</button>` : ''}
+    </div>`;
+  }).join('');
+
+  h += `<div class="teade-uus">
+      <input type="text" class="teade-sisend" placeholder="Lisa teade kõigile..."
+             onkeydown="if(event.key==='Enter')lisaTeade(this)">
+      <button class="btn btn-sm" onclick="lisaTeade(this.previousElementSibling)">Lisa</button>
+    </div>`;
+
+  alad.forEach(el => el.innerHTML = h);
+}
+
+function escapeHtml(x){
+  return (x||'').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+}
+function fmtKpvAeg(iso){
+  const d = new Date(iso);
+  return d.toLocaleDateString('et-EE', { day:'numeric', month:'numeric' }) + ' ' +
+         d.toLocaleTimeString('et-EE', { hour:'2-digit', minute:'2-digit' });
+}
+
+async function lisaTeade(input){
+  const tekst = (input.value || '').trim();
+  if (!tekst) return;
+  try {
+    const ins = await sb.post('teated', {
+      tarnija_id: D.tarnija_id, autor_id: currentUser.id, tekst
+    });
+    D.teated = [ins[0], ...(D.teated || [])];
+    joonistaTeated();
+  } catch(e){ toast('Viga: ' + e.message, 'red'); }
+}
+
+async function kustutaTeade(id){
+  const vana = D.teated;
+  D.teated = D.teated.filter(t => t.id !== id);
+  joonistaTeated();
+  try { await sb.del('teated', `id=eq.${id}`); }
+  catch(e){ D.teated = vana; joonistaTeated(); toast('Viga: ' + e.message, 'red'); }
 }
 
 function getKasutaja(id) { return D.profiilid.find(k => k.id === id) || { nimi: '—' }; }
@@ -1919,12 +1994,14 @@ function startSession() {
     if (vahetaja) vahetaja.style.display = isVaataja() ? 'none' : 'block';
     taidaTarnijaValjad();
     taidaKategooriad();
+    joonistaTeated();
     renderDashboard();
   } else {
     document.getElementById('pakkija-screen').style.display = 'block';
     document.getElementById('pkj-nimi').textContent = currentUser.nimi;
     document.getElementById('pkj-kpv').textContent = new Date().toLocaleDateString('et-EE', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
-    initPakkija();
+    joonistaTeated();
+  initPakkija();
   }
 }
 
@@ -1936,6 +2013,7 @@ function naitaPakkijaVaadet() {
   document.getElementById('pkj-kpv').textContent =
     new Date().toLocaleDateString('et-EE', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
   document.getElementById('pkj-tagasi').style.display = 'inline-block';
+  joonistaTeated();
   initPakkija();
 }
 
