@@ -1604,10 +1604,14 @@ function taidaKategooriad(){
 }
 
 async function salvestaKategooriad(){
-  await sb.post('seaded', {
-    tarnija_id: D.tarnija_id, voti: 'kategooriad',
-    vaartus: JSON.stringify(D.kategooriad), uuendatud: new Date().toISOString()
-  }, { 'Prefer': 'resolution=merge-duplicates,return=representation' });
+  const keha = { vaartus: JSON.stringify(D.kategooriad), uuendatud: new Date().toISOString() };
+  // Rida voib juba olemas olla — (tarnija_id, voti) on unikaalne.
+  const olemas = await sb.get('seaded', `tarnija_id=eq.${D.tarnija_id}&voti=eq.kategooriad`);
+  if (olemas.length){
+    await sb.patch('seaded', `id=eq.${olemas[0].id}`, keha);
+  } else {
+    await sb.post('seaded', { tarnija_id: D.tarnija_id, voti: 'kategooriad', ...keha });
+  }
 }
 
 async function lisaKategooria(){
