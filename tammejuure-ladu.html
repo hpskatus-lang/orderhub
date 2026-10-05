@@ -42,12 +42,17 @@ a { color: inherit; text-decoration: none; }
 
 /* ── LAYOUT ── */
 #app { display: flex; min-height: 100vh; }
-#sidebar { width: 210px; background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; flex-shrink: 0; position: fixed; top: 0; left: 0; height: 100vh; z-index: 20; }
+#sidebar { width: 210px; background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; flex-shrink: 0; position: fixed; top: 0; left: 0; height: 100vh; z-index: 20; overflow-y: auto; overscroll-behavior: contain; }
+#sidebar::-webkit-scrollbar { width: 8px; }
+#sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+#sidebar::-webkit-scrollbar-thumb:hover { background: var(--text3); }
 #main { margin-left: 210px; flex: 1; min-height: 100vh; display: flex; flex-direction: column; }
 #topbar { background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 24px; height: 52px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 10; }
 #content { padding: 24px; flex: 1; max-width: 1200px; }
 
 /* ── SIDEBAR ── */
+.rida-k { display:flex; align-items:center; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--border); }
+.rida-k:last-child { border-bottom:none; }
 .sb-logo { padding: 16px; border-bottom: 1px solid var(--border); }
 .sb-logo-title { font-size: 15px; font-weight: 700; color: var(--text); letter-spacing: -0.3px; }
 .sb-logo-sub { font-size: 11px; color: var(--text3); margin-top: 1px; }
@@ -752,11 +757,7 @@ a { color: inherit; text-decoration: none; }
               </div>
               <div class="form-row">
                 <label class="form-label">Kategooria</label>
-                <select id="tt-kat">
-                  <option value="jahu">Jahu</option>
-                  <option value="oli">Õli</option>
-                  <option value="muu">Muu</option>
-                </select>
+                <select id="tt-kat"></select>
               </div>
             </div>
             <div class="g2">
@@ -895,6 +896,7 @@ a { color: inherit; text-decoration: none; }
         <div class="tabs">
           <div class="tab active" onclick="showSub('seaded','kasutajad')">Kasutajad</div>
           <div class="tab" onclick="showSub('seaded','piirid')">Piirmäärad</div>
+          <div class="tab" onclick="showSub('seaded','kategooriad')">Kategooriad</div>
         </div>
         <div id="seaded-kasutajad" class="sub-view active">
           <div class="card">
@@ -913,6 +915,20 @@ a { color: inherit; text-decoration: none; }
             <div class="card-title">Laosaldo piirmäärad (hoiatus kui alla)</div>
             <div id="piirid-list"></div>
             <button class="btn btn-primary mt16" onclick="savePiirid()">Salvesta piirmäärad</button>
+          </div>
+        </div>
+        <div id="seaded-kategooriad" class="sub-view">
+          <div class="card">
+            <div class="card-title">Toodete kategooriad</div>
+            <p class="text-muted" style="font-size:12.5px;margin:0 0 12px">
+              Kategooria, mis on mõnel tootel kasutusel, ei ole kustutatav.
+            </p>
+            <div id="kat-list" style="max-width:380px"></div>
+            <div class="flex-gap mt16" style="max-width:380px">
+              <input type="text" id="kat-uus" placeholder="nt Helbed"
+                     onkeydown="if(event.key==='Enter')lisaKategooria()">
+              <button class="btn btn-primary" onclick="lisaKategooria()">Lisa</button>
+            </div>
           </div>
         </div>
       </div>
@@ -1360,11 +1376,7 @@ a { color: inherit; text-decoration: none; }
       </div>
       <div class="form-row">
         <label class="form-label">Kategooria</label>
-        <select id="te-kat">
-          <option value="jahu">Jahu</option>
-          <option value="oli">Õli</option>
-          <option value="muu">Muu</option>
-        </select>
+        <select id="te-kat"></select>
       </div>
     </div>
     <div class="g2">
@@ -1501,6 +1513,12 @@ async function laadKoik() {
     D.tarnija_id = currentUser.tarnija_id;
     const tRida = await sb.get('tarnijad', `id=eq.${D.tarnija_id}`);
     D.tarnija = tRida[0] || {};
+    try {
+      const kr = await sb.get('seaded', `tarnija_id=eq.${D.tarnija_id}&voti=eq.kategooriad`);
+      D.kategooriad = kr.length ? JSON.parse(kr[0].vaartus) : null;
+    } catch(e){ D.kategooriad = null; }
+    if (!D.kategooriad || !D.kategooriad.length)
+      D.kategooriad = ['Jahu','Õli','Muu'];
     try { D.tarnekohad = await sb.get('tarnekohad', `tarnija_id=eq.${D.tarnija_id}`); }
     catch(e){ D.tarnekohad = []; }
     const tid = D.tarnija_id;
@@ -1570,6 +1588,54 @@ function getKlient(id) { return D.kliendid.find(k => k.id === id) || { nimi: '�
 function maheKood()   { return D.tarnija?.mahe_kood || ''; }
 function tarnijaNimi(){ return D.tarnija?.nimi || ''; }
 function maheSilt()   { return maheKood() ? 'MAHE \u00B7 ' + maheKood() : ''; }
+
+// Kategooriad tulevad seadetest, mitte koodist
+function taidaKategooriad(){
+  const h = D.kategooriad.map(k => `<option value="${k}">${k}</option>`).join('');
+  ['tt-kat','te-kat'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el){ const v = el.value; el.innerHTML = h; if (v) el.value = v; }
+  });
+  const list = document.getElementById('kat-list');
+  if (list) list.innerHTML = D.kategooriad.map(k =>
+    `<div class="rida-k"><span>${k}</span>
+     <button class="btn btn-sm btn-danger" onclick="kustutaKategooria('${k.replace(/'/g,"\\'")}')">×</button></div>`
+  ).join('') || '<div class="text-muted">Kategooriaid pole</div>';
+}
+
+async function salvestaKategooriad(){
+  await sb.post('seaded', {
+    tarnija_id: D.tarnija_id, voti: 'kategooriad',
+    vaartus: JSON.stringify(D.kategooriad), uuendatud: new Date().toISOString()
+  }, { 'Prefer': 'resolution=merge-duplicates,return=representation' });
+}
+
+async function lisaKategooria(){
+  if (guardVaataja()) return;
+  const el = document.getElementById('kat-uus');
+  const nimi = el.value.trim();
+  if (!nimi) { toast('Sisesta nimi!', 'warn'); return; }
+  if (D.kategooriad.some(k => k.toLowerCase() === nimi.toLowerCase())){
+    toast('Selline kategooria on juba olemas', 'warn'); return;
+  }
+  D.kategooriad.push(nimi);
+  try { await salvestaKategooriad(); el.value = ''; toast(nimi + ' lisatud', 'green'); taidaKategooriad(); }
+  catch(e){ D.kategooriad.pop(); toast('Viga: ' + e.message, 'red'); }
+}
+
+async function kustutaKategooria(nimi){
+  if (guardVaataja()) return;
+  const kasutusel = D.tooted.filter(t => t.kategooria === nimi).length;
+  if (kasutusel){
+    alert('"' + nimi + '" on kasutusel ' + kasutusel + ' tootel.\n\n' +
+          'Muuda enne nende toodete kategooriat.'); return;
+  }
+  if (!confirm('Kustutada kategooria "' + nimi + '"?')) return;
+  const vana = [...D.kategooriad];
+  D.kategooriad = D.kategooriad.filter(k => k !== nimi);
+  try { await salvestaKategooriad(); taidaKategooriad(); }
+  catch(e){ D.kategooriad = vana; toast('Viga: ' + e.message, 'red'); }
+}
 
 function getKasutaja(id) { return D.profiilid.find(k => k.id === id) || { nimi: '—' }; }
 function getPartii(id) { return D.partiid.find(p => p.id === id) || null; }
@@ -1848,6 +1914,7 @@ function startSession() {
     const vahetaja = document.getElementById('sb-vaheta');
     if (vahetaja) vahetaja.style.display = isVaataja() ? 'none' : 'block';
     taidaTarnijaValjad();
+    taidaKategooriad();
     renderDashboard();
   } else {
     document.getElementById('pakkija-screen').style.display = 'block';
