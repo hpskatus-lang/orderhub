@@ -52,6 +52,11 @@ a { color: inherit; text-decoration: none; }
 
 /* ── SIDEBAR ── */
 .teateriba { margin-bottom:16px; }
+.alert-red { background:#fef2f2; border-left:4px solid #b91c1c; color:#7f1d1d; padding:12px 14px; border-radius:8px; }
+#kus-nupp:disabled { opacity:.4; cursor:not-allowed; }
+.kus-loend { font-size:13px; margin:0 0 12px; padding:10px 14px; border-radius:8px;
+             background:#fffbeb; border-left:4px solid #e0b050; color:#713f12; }
+.kus-loend ul { margin:6px 0 0; padding-left:18px; }
 .teade-r { display:flex; align-items:flex-start; gap:10px; padding:10px 14px; border-radius:8px;
            background:var(--surface); border:1px solid var(--border); margin-bottom:7px; font-size:13.5px; }
 .teade-r.tahtis { border-color:#e0b050; background:#fdf8ec; }
@@ -1134,6 +1139,23 @@ a { color: inherit; text-decoration: none; }
   </div>
 </div>
 
+<div id="kustuta-modal" class="modal-overlay">
+  <div class="modal-box" style="max-width:480px">
+    <div class="modal-title" style="color:#b91c1c">Kustutamine</div>
+    <div id="kus-mida" class="alert alert-red mb12"></div>
+    <div id="kus-moju"></div>
+    <div class="form-row">
+      <label class="form-label">Kinnitamiseks kirjuta <strong id="kus-sona"></strong></label>
+      <input type="text" id="kus-sisend" autocomplete="off" oninput="kontrolliKustutus()"
+             onkeydown="if(event.key==='Enter'&&!document.getElementById('kus-nupp').disabled)kinnitaKustutus()">
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-danger" id="kus-nupp" onclick="kinnitaKustutus()" disabled>Kustuta jäädavalt</button>
+      <button class="btn" onclick="closeModal('kustuta-modal')">Tühista</button>
+    </div>
+  </div>
+</div>
+
 <div id="sildi-modal" class="modal-overlay">
   <div class="modal-box" style="max-width:760px">
     <div class="modal-title">Partiisildid</div>
@@ -1657,6 +1679,120 @@ async function kustutaKategooria(nimi){
   D.kategooriad = D.kategooriad.filter(k => k !== nimi);
   try { await salvestaKategooriad(); taidaKategooriad(); }
   catch(e){ D.kategooriad = vana; toast('Viga: ' + e.message, 'red'); }
+}
+
+// ============================================================
+// KAHEASTMELINE KUSTUTAMINE
+//
+// Esimene aste: modaal naitab, mida ja mis moju on.
+// Teine aste: kasutaja kirjutab kinnitussona. Nupp avaneb alles siis.
+// ============================================================
+let kustutusTegevus = null;
+
+function kysiKustutust({ mida, sona, moju, tegevus }){
+  kustutusTegevus = { sona, tegevus };
+  document.getElementById('kus-mida').innerHTML = mida;
+  document.getElementById('kus-moju').innerHTML = (moju && moju.length)
+    ? '<div class="kus-loend"><strong>See kustutab ühtlasi:</strong><ul>' +
+      moju.map(x => '<li>' + x + '</li>').join('') + '</ul></div>'
+    : '';
+  document.getElementById('kus-sona').textContent = sona;
+  const sis = document.getElementById('kus-sisend');
+  sis.value = '';
+  document.getElementById('kus-nupp').disabled = true;
+  openModal('kustuta-modal');
+  setTimeout(() => sis.focus(), 100);
+}
+
+function kontrolliKustutus(){
+  const v = document.getElementById('kus-sisend').value.trim();
+  document.getElementById('kus-nupp').disabled =
+    !kustutusTegevus || v.toUpperCase() !== kustutusTegevus.sona.toUpperCase();
+}
+
+async function kinnitaKustutus(){
+  if (!kustutusTegevus) return;
+  const nupp = document.getElementById('kus-nupp');
+  nupp.disabled = true; nupp.textContent = 'Kustutan...';
+  try {
+    await kustutusTegevus.tegevus();
+    closeModal('kustuta-modal');
+  } catch(e){
+    toast('Viga: ' + e.message, 'red');
+  } finally {
+    nupp.textContent = 'Kustuta jäädavalt';
+    kustutusTegevus = null;
+  }
+}
+
+// ---------- TELLIMUS ----------
+function kustutaTellimus(id){
+  if (guardVaataja()) return;
+  const t = D.tellimused.find(x => x.id === id);
+  if (!t) return;
+  const k = getKlient(t.klient_id);
+  const read = D.tellimuse_read.filter(r => r.tellimus_id === id);
+  const nr = t.saatelehe_nr || fmtDate(t.loodud);
+
+  const moju = [];
+  if (read.length) moju.push(read.length + ' tellimuse rida');
+  const seosed = D.tellimuse_partiid.filter(tp => read.some(r => r.id === tp.tellimuse_rida_id));
+  if (seosed.length) moju.push(seosed.length + ' partii sidumist — jälgitavuse ahel katkeb');
+  if (t.staatus === 'saadetud')
+    moju.push('NB: tellimus on juba saadetud. Laoseisu see tagasi ei too.');
+
+  kysiKustutust({
+    mida: '<strong>Saateleht ' + nr + '</strong><br>' + (k ? k.nimi : 'klient määramata'),
+    sona: 'KUSTUTA',
+    moju,
+    tegevus: async () => {
+      await sb.del('tellimused', `id=eq.${id}`);
+      D.tellimused = D.tellimused.filter(x => x.id !== id);
+      const reaIdd = read.map(r => r.id);
+      D.tellimuse_read = D.tellimuse_read.filter(r => r.tellimus_id !== id);
+      D.tellimuse_partiid = D.tellimuse_partiid.filter(tp => !reaIdd.includes(tp.tellimuse_rida_id));
+      toast('Saateleht ' + nr + ' kustutatud', 'green');
+      renderTellimused(); renderDashboard();
+    }
+  });
+}
+
+// ---------- PARTII ----------
+function kustutaPartii(id){
+  if (guardVaataja()) return;
+  const p = D.partiid.find(x => x.id === id);
+  if (!p) return;
+  const t = getToode(p.toode_id);
+
+  // Partii on jalgitavuse alus — kui ta on kuskil kasutusel, ei kustuta
+  const tellimustes = D.tellimuse_partiid.filter(x => x.partii_id === id).length;
+  const sessioone   = D.tootmissessioonid.filter(x => x.partii_id === id).length;
+  const mahaKantud  = D.mahakandmised.filter(x => x.partii_id === id).length;
+
+  if (tellimustes || sessioone || mahaKantud){
+    const osad = [];
+    if (tellimustes) osad.push(tellimustes + ' tellimuse real');
+    if (sessioone)   osad.push(sessioone + ' tootmissessioonis');
+    if (mahaKantud)  osad.push(mahaKantud + ' mahakandmises');
+    alert('Partiid ' + p.partii_nr + ' ei saa kustutada.\n\n' +
+          'Ta on kasutusel: ' + osad.join(', ') + '.\n\n' +
+          'Mahe jälgitavus nõuab, et see ahel jääks terveks.\n' +
+          'Kasuta "Sulge" — partii kaob valikutest, aga ajalugu jääb alles.');
+    return;
+  }
+
+  kysiKustutust({
+    mida: '<strong>Partii ' + p.partii_nr + '</strong><br>' +
+          (t ? t.nimi : '') + ' · toodetud ' + fmtDate(p.tootmiskuupaev),
+    sona: p.partii_nr,
+    moju: ['Partii ei ole veel üheski tellimuses ega sessioonis — ohutu kustutada.'],
+    tegevus: async () => {
+      await sb.del('partiid', `id=eq.${id}`);
+      D.partiid = D.partiid.filter(x => x.id !== id);
+      toast('Partii ' + p.partii_nr + ' kustutatud', 'green');
+      renderPartiid(); renderDashboard();
+    }
+  });
 }
 
 // ============================================================
@@ -2195,6 +2331,8 @@ function renderPartiid() {
           <button class="btn btn-sm" onclick="showPartiiDetail('${p.id}')">Detail</button>
           <button class="btn btn-sm" onclick="avaSildid('${p.id}')">Sildid</button>
           <button class="btn btn-sm" onclick="togglePartiiSuletud('${p.id}')">${p.staatus === 'aktiivne' ? 'Sulge' : 'Ava'}</button>
+          ${['omanik','admin'].includes(currentUser.roll)
+            ? `<button class="btn btn-sm btn-danger" onclick="kustutaPartii('${p.id}')" title="Kustuta">×</button>` : ''}
         </div>
       </td>
     </tr>`;
@@ -2735,14 +2873,19 @@ async function kustutaMaterjal(id) {
   if (guardVaataja()) return;
   const m = D.materjalid.find(x => x.id === id);
   if (!m) return;
-  if (!confirm('Kustutada materjal "' + m.nimetus + '"?\n\nKogu liikumiste ajalugu kaob samuti.')) return;
-  try {
-    await sb.del('materjali_liikumised', `materjal_id=eq.${id}`);
-    await sb.del('materjalid', `id=eq.${id}`);
-    D.materjalid = D.materjalid.filter(x => x.id !== id);
-    toast(m.nimetus + ' kustutatud', 'green');
-    renderMaterjalid();
-  } catch(e) { toast('Viga: ' + e.message, 'red'); }
+  const liik = (D.materjali_liikumised || []).filter(x => x.materjal_id === id).length;
+  kysiKustutust({
+    mida: '<strong>' + m.nimetus + '</strong><br>laos ' + (m.kogus_laos || 0) + ' ' + (m.yhik || 'tk'),
+    sona: 'KUSTUTA',
+    moju: liik ? [liik + ' liikumise kirjet — ajalugu kaob'] : [],
+    tegevus: async () => {
+      await sb.del('materjali_liikumised', `materjal_id=eq.${id}`);
+      await sb.del('materjalid', `id=eq.${id}`);
+      D.materjalid = D.materjalid.filter(x => x.id !== id);
+      toast(m.nimetus + ' kustutatud', 'green');
+      renderMaterjalid();
+    }
+  });
 }
 
 async function updatePiirmaer(id, current) {
@@ -2786,6 +2929,8 @@ function renderTellimused() {
           <button class="btn btn-sm" onclick="openPdf('${t.id}')">PDF</button>
           ${olekNupp}
           <button class="btn btn-sm" onclick="dubleerTellimus('${t.id}')" title="Dubleeeri">⧉</button>
+          ${['omanik','admin'].includes(currentUser.roll)
+            ? `<button class="btn btn-sm btn-danger" onclick="kustutaTellimus('${t.id}')" title="Kustuta">×</button>` : ''}
         </div>
       </td>
     </tr>`;
@@ -3166,12 +3311,23 @@ async function salvestaTarnekoht(){
 async function kustutaTarnekoht(id){
   if (guardVaataja()) return;
   const x = D.tarnekohad.find(y => y.id === id);
-  if (!confirm('Kustutada tarnekoht "' + x.nimi + '"?')) return;
-  try {
-    await sb.del('tarnekohad', `id=eq.${id}`);
-    D.tarnekohad = D.tarnekohad.filter(y => y.id !== id);
-    joonistaTarnekohad();
-  } catch(e){ toast('Viga: ' + e.message + ' (kas mõni tellimus viitab sellele?)', 'red'); }
+  if (!x) return;
+  const kasutusel = D.tellimused.filter(t => t.tarnekoht_id === id).length;
+  if (kasutusel){
+    alert('Tarnekohta "' + x.nimi + '" ei saa kustutada.\n\n' +
+          kasutusel + ' tellimust viitab sellele.'); return;
+  }
+  kysiKustutust({
+    mida: '<strong>' + x.nimi + '</strong><br>' + (x.aadress || ''),
+    sona: 'KUSTUTA',
+    moju: [],
+    tegevus: async () => {
+      await sb.del('tarnekohad', `id=eq.${id}`);
+      D.tarnekohad = D.tarnekohad.filter(y => y.id !== id);
+      toast(x.nimi + ' kustutatud', 'green');
+      joonistaTarnekohad();
+    }
+  });
 }
 
 function openKlientEdit(id) {
@@ -3255,14 +3411,33 @@ async function saveKlient() {
 }
 
 async function deleteKlient(id) {
-  if (!confirm('Kustuta klient?')) return;
-  try {
-    await sb.del('kliendid', `id=eq.${id}`);
-    D.kliendid = D.kliendid.filter(k => k.id !== id);
-    D.kliendi_tingimused = D.kliendi_tingimused.filter(t => t.klient_id !== id);
-    renderKliendid();
-    toast('Klient kustutatud', 'info');
-  } catch(e) { toast('Viga: ' + e.message, 'red'); }
+  if (guardVaataja()) return;
+  const k = getKlient(id);
+  if (!k) return;
+  const tell = D.tellimused.filter(t => t.klient_id === id).length;
+  if (tell){
+    alert('Klienti "' + k.nimi + '" ei saa kustutada.\n\n' +
+          tell + ' tellimust viitab sellele.\n\n' +
+          'Tellimuste ajalugu peab alles jääma.'); return;
+  }
+  const kohti = (D.tarnekohad || []).filter(x => x.klient_id === id).length;
+  const ting  = D.kliendi_tingimused.filter(t => t.klient_id === id).length;
+  const moju = [];
+  if (kohti) moju.push(kohti + ' tarnekohta');
+  if (ting)  moju.push(ting + ' eritingimust');
+  kysiKustutust({
+    mida: '<strong>' + k.nimi + '</strong><br>' + (k.reg_nr ? 'Reg ' + k.reg_nr : ''),
+    sona: 'KUSTUTA',
+    moju,
+    tegevus: async () => {
+      await sb.del('kliendid', `id=eq.${id}`);
+      D.kliendid = D.kliendid.filter(x => x.id !== id);
+      D.kliendi_tingimused = D.kliendi_tingimused.filter(t => t.klient_id !== id);
+      if (D.tarnekohad) D.tarnekohad = D.tarnekohad.filter(x => x.klient_id !== id);
+      toast(k.nimi + ' kustutatud', 'green');
+      renderKliendid();
+    }
+  });
 }
 
 // ============================================================
@@ -3844,18 +4019,20 @@ async function kustutaToode(id) {
           'Kasuta "Peida" \u2014 toode kaob nimekirjast, aga ajalugu j\u00E4\u00E4b alles.');
     return;
   }
-  if (!confirm('Kustutada toode "' + t.nimi + '"?\n\nSuurused ja laosaldo kaovad samuti.')) return;
-
-  try {
-    await sb.del('tooted', `id=eq.${id}`);
-    D.tooted = D.tooted.filter(x => x.id !== id);
-    D.toote_suurused = D.toote_suurused.filter(x => x.toode_id !== id);
-    D.ladu_cache = D.ladu_cache.filter(x => x.toode_id !== id);
-    toast(t.nimi + ' kustutatud', 'green');
-    renderTooted();
-  } catch(e) {
-    toast('Viga: ' + e.message, 'red');
-  }
+  const suurusi = D.toote_suurused.filter(x => x.toode_id === id).length;
+  kysiKustutust({
+    mida: '<strong>' + t.nimi + '</strong><br>' + (t.kategooria || ''),
+    sona: 'KUSTUTA',
+    moju: [suurusi + ' suurust', 'laosaldo read', 'piirmäärad'],
+    tegevus: async () => {
+      await sb.del('tooted', `id=eq.${id}`);
+      D.tooted = D.tooted.filter(x => x.id !== id);
+      D.toote_suurused = D.toote_suurused.filter(x => x.toode_id !== id);
+      D.ladu_cache = D.ladu_cache.filter(x => x.toode_id !== id);
+      toast(t.nimi + ' kustutatud', 'green');
+      renderTooted();
+    }
+  });
 }
 
 async function toggleToodeAktiivne(id) {
@@ -4045,13 +4222,20 @@ async function saveSundmus() {
 }
 
 async function deleteSundmus(id) {
-  if (!confirm('Kustuta sündmus?')) return;
-  try {
-    await sb.del('sundmused', `id=eq.${id}`);
-    D.sundmused = D.sundmused.filter(s => s.id !== id);
-    renderSundmused();
-    toast('Sündmus kustutatud', 'info');
-  } catch(e) { toast('Viga: ' + e.message, 'red'); }
+  if (guardVaataja()) return;
+  const x = D.sundmused.find(y => y.id === id);
+  if (!x) return;
+  kysiKustutust({
+    mida: '<strong>' + x.pealkiri + '</strong><br>' + fmtDate(x.kuupaev),
+    sona: 'KUSTUTA',
+    moju: [],
+    tegevus: async () => {
+      await sb.del('sundmused', `id=eq.${id}`);
+      D.sundmused = D.sundmused.filter(y => y.id !== id);
+      toast('Sündmus kustutatud', 'green');
+      renderSundmused();
+    }
+  });
 }
 
 // Uuenda dashboard et näitaks sündmusi
