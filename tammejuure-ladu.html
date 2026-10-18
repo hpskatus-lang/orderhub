@@ -4,7 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Tammejuure · Laohaldus</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <style>
 :root {
   --bg: #f5f4f0;
@@ -230,7 +229,15 @@ a { color: inherit; text-decoration: none; }
 .silt-k svg { width:100%; height:26px; margin-top:4px; }
 .silt-k .nr { font-family:monospace; font-size:9px; letter-spacing:.07em; text-align:center; }
 @media print { .eiprindi, .modal-footer { display:none !important; } .sildid { grid-template-columns:repeat(3,1fr); } }
+.sort-th { cursor:pointer; user-select:none; position:relative; padding-right:16px !important; }
+.sort-th:hover { color:var(--text); }
+.sort-th::after { content:'\2195'; position:absolute; right:4px; opacity:.25; font-size:10px; }
+.sort-th.sort-asc::after  { content:'\2191'; opacity:1; color:var(--green); }
+.sort-th.sort-desc::after { content:'\2193'; opacity:1; color:var(--green); }
+#print-ala { display:none; }
+
 @media print {
+  #print-ala.print-area { display:block; }
   body * { visibility: hidden; }
   .print-area, .print-area * { visibility: visible; }
   .print-area { position: fixed; inset: 0; padding: 24px; }
@@ -406,6 +413,7 @@ a { color: inherit; text-decoration: none; }
                 <option value="suletud">Suletud</option>
                 <option value="koik">Kõik</option>
               </select>
+              <button class="btn btn-sm eiprindi" onclick="prindiTabel('partiid-body','Partiid')">\U0001F5A8 Prindi</button>
             </div>
             <table class="tbl">
               <thead><tr><th>Toode</th><th>Partii nr</th><th>Tootmiskuupäev</th><th>Parim enne</th><th>Lig. kg</th><th>Pakitud</th><th>FIFO</th><th>Olek</th><th></th></tr></thead>
@@ -533,7 +541,10 @@ a { color: inherit; text-decoration: none; }
             <div id="ladu-bars"></div>
           </div>
           <div class="card">
-            <div class="card-title">Detailne saldo suuruste järgi</div>
+            <div class="flex-between" style="margin-bottom:10px">
+              <div class="card-title" style="margin:0">Detailne saldo suuruste järgi</div>
+              <button class="btn btn-sm eiprindi" onclick="prindiTabel('ladu-detail-body','Laoseis')">\U0001F5A8 Prindi</button>
+            </div>
             <table class="tbl">
               <thead><tr><th>Toode</th><th>Suurus</th><th>Laos</th><th>Piirmäär</th><th>Olek</th></tr></thead>
               <tbody id="ladu-detail-body"></tbody>
@@ -607,7 +618,10 @@ a { color: inherit; text-decoration: none; }
           <button class="btn btn-red mt8" onclick="saveMahakandmine()">Kanna maha</button>
         </div>
         <div class="card">
-          <div class="card-title">Mahakandmiste logi</div>
+          <div class="flex-between" style="margin-bottom:10px">
+            <div class="card-title" style="margin:0">Mahakandmiste logi</div>
+            <button class="btn btn-sm eiprindi" onclick="prindiTabel('mh-body','Mahakandmised')">\U0001F5A8 Prindi</button>
+          </div>
           <table class="tbl">
             <thead><tr><th>Kuupäev</th><th>Toode</th><th>Partii</th><th>Suurus</th><th>Kogus</th><th>Põhjus</th><th>Tegi</th></tr></thead>
             <tbody id="mh-body"></tbody>
@@ -618,7 +632,10 @@ a { color: inherit; text-decoration: none; }
       <!-- MATERJALID -->
       <div id="view-materjalid" class="view">
         <div class="card">
-          <div class="card-title">Pakendmaterjalide saldo</div>
+          <div class="flex-between" style="margin-bottom:10px">
+            <div class="card-title" style="margin:0">Pakendmaterjalide saldo</div>
+            <button class="btn btn-sm eiprindi" onclick="prindiTabel('mat-body','Pakendmaterjalide saldo')">\U0001F5A8 Prindi</button>
+          </div>
           <table class="tbl">
             <thead><tr><th>Materjal</th><th>Laos</th><th>Piirmäär</th><th>Olek</th><th></th></tr></thead>
             <tbody id="mat-body"></tbody>
@@ -677,6 +694,10 @@ a { color: inherit; text-decoration: none; }
         </div>
         <div id="tellimused-nimekiri" class="sub-view active">
           <div class="card">
+            <div class="flex-between" style="margin-bottom:10px">
+              <div class="card-title" style="margin:0">Tellimused</div>
+              <button class="btn btn-sm eiprindi" onclick="prindiTabel('tel-body','Tellimused')">\U0001F5A8 Prindi</button>
+            </div>
             <table class="tbl">
               <thead><tr><th>Nr</th><th>Kuupäev</th><th>Klient</th><th>Tooted</th><th>Kanal</th><th>Olek</th><th></th></tr></thead>
               <tbody id="tel-body"></tbody>
@@ -1138,6 +1159,8 @@ a { color: inherit; text-decoration: none; }
     </div>
   </div>
 </div>
+
+<div id="print-ala"></div>
 
 <div id="kustuta-modal" class="modal-overlay">
   <div class="modal-box" style="max-width:480px">
@@ -1682,6 +1705,128 @@ async function kustutaKategooria(nimi){
 }
 
 // ============================================================
+// TABELITE SORTEERIMINE
+//
+// Uks mehhanism koigile tabelitele. Klikk paisel sorteerib,
+// teine klikk poorab ymber. Sort jaab pysima ka siis, kui
+// tabel vahepeal uuesti joonistatakse.
+// ============================================================
+
+// Lahtri vaartus sortimiseks: kuupaev, number voi tekst
+function sordiVaartus(td){
+  const txt = (td ? td.textContent : '').trim();
+  const d = txt.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})/);
+  if (d) return { n: new Date(+d[3], +d[2]-1, +d[1]).getTime() };
+  const puhas = txt.replace(/\s/g,'');
+  // Kood kujul 2025-01 voi RP-48-26 on tekst, mitte arv
+  if (/^\d+[-\/]\d/.test(puhas) && !/^\d+\s*\/\s*\d+$/.test(txt)) return { t: txt.toLowerCase() };
+  if (/^[~\-\d]/.test(puhas)){
+    const n = puhas.match(/-?\d+(?:[.,]\d+)?/);
+    if (n) return { n: parseFloat(n[0].replace(',','.')) };
+  }
+  return { t: txt.toLowerCase() };
+}
+
+function rakendaSort(tabel){
+  const idx = parseInt(tabel.dataset.sortIdx);
+  if (isNaN(idx) || !tabel.tBodies[0]) return;
+  const tbody = tabel.tBodies[0];
+  const read = [...tbody.rows].filter(r => r.cells.length > idx && !r.querySelector('.tbl-empty'));
+  if (read.length < 2) return;
+  const m = tabel.dataset.sortDir === 'desc' ? -1 : 1;
+  read.sort((a,b) => {
+    const A = sordiVaartus(a.cells[idx]), B = sordiVaartus(b.cells[idx]);
+    if (A.n !== undefined && B.n !== undefined) return (A.n - B.n) * m;
+    if (A.n !== undefined) return -m;
+    if (B.n !== undefined) return m;
+    return A.t.localeCompare(B.t, 'et') * m;
+  });
+  read.forEach(r => tbody.appendChild(r));
+}
+
+function sordiTabel(tabel, idx){
+  const sama = tabel.dataset.sortIdx === String(idx);
+  tabel.dataset.sortDir = (sama && tabel.dataset.sortDir === 'asc') ? 'desc' : 'asc';
+  tabel.dataset.sortIdx = idx;
+  tabel.dataset.sorting = '1';
+  rakendaSort(tabel);
+  delete tabel.dataset.sorting;
+  [...tabel.querySelectorAll('thead th')].forEach((th,i) => {
+    th.classList.toggle('sort-asc',  i === idx && tabel.dataset.sortDir === 'asc');
+    th.classList.toggle('sort-desc', i === idx && tabel.dataset.sortDir === 'desc');
+  });
+}
+
+function seaKoikTabelid(){
+  document.querySelectorAll('#app table.tbl, #pakkija-screen table.tbl').forEach(tabel => {
+    if (tabel.dataset.sortReady || !tabel.querySelector('thead') || !tabel.tBodies[0]) return;
+    // Vormi-tabelid (uue tellimuse read) ei vaja sortimist
+    if (tabel.querySelector('tbody[id$="items-body"]')) return;
+    tabel.dataset.sortReady = '1';
+
+    [...tabel.querySelectorAll('thead th')].forEach((th, idx) => {
+      if (!th.textContent.trim()) return;          // tegevuste veerg
+      th.classList.add('sort-th');
+      th.addEventListener('click', () => sordiTabel(tabel, idx));
+    });
+
+    // Uuesti joonistamine ei tohi sorti ara kaotada
+    new MutationObserver(() => {
+      if (tabel.dataset.sortIdx === undefined || tabel.dataset.sorting) return;
+      tabel.dataset.sorting = '1';
+      rakendaSort(tabel);
+      delete tabel.dataset.sorting;
+    }).observe(tabel.tBodies[0], { childList: true });
+  });
+}
+
+// ============================================================
+// TABELI VALJATRYKK
+//
+// Trykib selle, mis ekraanil on — koos filtri ja sortimisega.
+// Brauseri prindiaknas saab valida "Salvesta PDF-ina".
+// ============================================================
+function prindiTabel(tbodyId, pealkiri){
+  const tbody = document.getElementById(tbodyId);
+  if (!tbody) return;
+  const tabel = tbody.closest('table');
+  const read = [...tbody.rows].filter(r => !r.querySelector('.tbl-empty'));
+  if (!read.length){ toast('Tabelis pole ridu', 'warn'); return; }
+
+  const paised = [...tabel.querySelectorAll('thead th')];
+  const veerud = paised.map((th,i) => th.textContent.trim() ? i : -1).filter(i => i >= 0);
+
+  const n = new Date();
+  const aeg = n.toLocaleDateString('et-EE', { day:'numeric', month:'long', year:'numeric' }) +
+              ' kell ' + n.toLocaleTimeString('et-EE', { hour:'2-digit', minute:'2-digit' });
+
+  const ala = document.getElementById('print-ala');
+  ala.innerHTML =
+    '<div class="pdf-area" style="border:none;padding:0">' +
+      '<div class="pdf-header">' +
+        '<div><div class="pdf-title">' + pealkiri + '</div>' +
+        '<div class="text-muted mt8">Seisuga ' + aeg + '</div></div>' +
+        '<div class="pdf-company"><strong>' + tarnijaNimi() + '</strong>' +
+          (maheKood() ? '<br><span class="pdf-mahe">MAHE · ' + maheKood() + '</span>' : '') +
+        '</div>' +
+      '</div>' +
+      '<table class="tbl" style="margin-top:16px"><thead><tr>' +
+        veerud.map(i => '<th>' + paised[i].textContent.trim() + '</th>').join('') +
+      '</tr></thead><tbody>' +
+        read.map(r => '<tr>' + veerud.map(i =>
+          '<td>' + (r.cells[i] ? r.cells[i].textContent.trim().replace(/\s+/g,' ') : '') + '</td>'
+        ).join('') + '</tr>').join('') +
+      '</tbody></table>' +
+      '<div class="text-muted mt12" style="font-size:11px;border-top:1px solid var(--border);padding-top:8px">' +
+        read.length + ' rida · ' + tarnijaNimi() +
+      '</div>' +
+    '</div>';
+  ala.classList.add('print-area');
+  window.print();
+  setTimeout(() => { ala.classList.remove('print-area'); ala.innerHTML = ''; }, 800);
+}
+
+// ============================================================
 // KAHEASTMELINE KUSTUTAMINE
 //
 // Esimene aste: modaal naitab, mida ja mis moju on.
@@ -2021,6 +2166,7 @@ function showView(name) {
   const titles = { dashboard:'Dashboard', partiid:'Partiid', pakkimine:'Pakkimine', tooaeg:'Tööaeg', ladu:'Laosaldo', mahakandmised:'Mahakandmised', materjalid:'Pakendmaterjalid', tellimused:'Tellimused', kliendid:'Kliendid', raportid:'Mahe jälgitavus', seaded:'Seaded', tooted:'Tooted', sundmused:'Sündmused' };
   document.getElementById('topbar-title').textContent = titles[name] || name;
   closeSidebar();
+  seaKoikTabelid();
   const renders = { dashboard: renderDashboard, partiid: renderPartiid, pakkimine: renderPakkimine, tooaeg: renderTooaegView, ladu: renderLadu, mahakandmised: renderMahakandmised, materjalid: renderMaterjalid, tellimused: renderTellimused, kliendid: renderKliendid, raportid: renderRaportid, seaded: renderSeaded, tooted: renderTooted, sundmused: renderSundmused };
   renders[name]?.();
 }
@@ -2130,6 +2276,7 @@ function startSession() {
     if (vahetaja) vahetaja.style.display = isVaataja() ? 'none' : 'block';
     taidaTarnijaValjad();
     taidaKategooriad();
+    seaKoikTabelid();
     joonistaTeated();
     renderDashboard();
   } else {
