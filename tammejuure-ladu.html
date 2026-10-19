@@ -320,7 +320,7 @@ a { color: inherit; text-decoration: none; }
   <div id="sidebar">
     <div class="sb-logo">
       <div class="sb-logo-title">🌾 Tammejuure</div>
-      <div class="sb-logo-sub" id="sb-versioon" title="Millal see versioon üles laaditi">Laohaldus</div>
+      <div class="sb-logo-sub" id="sb-versioon" title="Programmi versioon">Laohaldus</div>
     </div>
     <div id="sb-vaheta" style="display:none;padding:0 14px 10px">
       <button class="btn btn-sm" style="width:100%" onclick="naitaPakkijaVaadet()">📦 Vaata pakkijana</button>
@@ -2534,14 +2534,14 @@ function guardVaataja() {
 
 // Versioon tuleb faili enda muutmisajast, mille server kaasa saadab.
 // Nii ei pea keegi numbrit meeles pidama ega kasitsi muutma.
+// Versiooninumber. Tosta seda iga sisulise muudatusega.
+// Mida tapselt muudeti, seda naitab GitHubi ajalugu.
+const VERSIOON = 'v3.0';
+
 function naitaVersiooni(){
   const el = document.getElementById('sb-versioon');
   if (!el) return;
-  const d = new Date(document.lastModified);
-  if (isNaN(d)) return;
-  const p = n => String(n).padStart(2,'0');
-  el.textContent = 'Laohaldus \u00b7 ' + p(d.getDate()) + '.' + p(d.getMonth()+1) +
-                   ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
+  el.textContent = 'Laohaldus · ' + VERSIOON;
 }
 
 function taidaTarnijaValjad() {
@@ -2817,8 +2817,15 @@ async function savePartii() {
   const markus = document.getElementById('p-markus').value.trim();
 
   if (!nr || !kpv) { toast('Täida kohustuslikud väljad!', 'warn'); return; }
-  if (D.partiid.find(p => p.toode_id === toode_id && p.partii_nr === nr)) {
-    toast('See partii number on juba olemas!', 'warn'); return;
+  // Number peab olema unikaalne kogu talu peale, mitte ainult selle toote sees.
+  // Andmebaas nouab sedasama. Kui siin kontrollida kitsamalt, jouab kasutajani
+  // toores Postgresi viga.
+  const olemas = D.partiid.find(p => p.partii_nr === nr);
+  if (olemas) {
+    const ot = getToode(olemas.toode_id);
+    toast('Number ' + nr + ' on juba kasutusel: ' + (ot ? ot.nimi : 'tundmatu toode')
+          + (olemas.tootmiskuupaev ? ', ' + fmtDate(olemas.tootmiskuupaev) : ''), 'warn');
+    return;
   }
 
   try {
@@ -4132,7 +4139,13 @@ async function pkjSavePakkimine() {
   if (manual) {
     partii_nr = document.getElementById('pkj-partii-txt').value.trim();
     if (!partii_nr) { toast('Sisesta partii number!', 'warn'); return; }
-    let existing = D.partiid.find(p => p.partii_nr === partii_nr && p.toode_id === toode_id);
+    let existing = D.partiid.find(p => p.partii_nr === partii_nr);
+    if (existing && existing.toode_id !== toode_id) {
+      const ot = getToode(existing.toode_id);
+      toast('Number ' + partii_nr + ' kuulub juba tootele '
+            + (ot ? ot.nimi : 'tundmatu') + ' — vali teine number', 'warn');
+      return;
+    }
     if (!existing) {
       try {
         const ins = await sb.post('partiid', {
@@ -4477,12 +4490,19 @@ async function kustutaToode(id) {
   if (!t) return;
 
   // Kontrolli, kas toode on juba kasutuses
-  const partiisid = D.partiid.filter(p => p.toode_id === id).length;
+  const takistajad = D.partiid.filter(p => p.toode_id === id);
   const ridu = D.tellimuse_read.filter(r => r.toode_id === id).length;
-  if (partiisid || ridu) {
-    alert('"' + t.nimi + '" ei saa kustutada.\n\n' +
-          'Seotud: ' + partiisid + ' partiid, ' + ridu + ' tellimuse rida.\n\n' +
-          'Kasuta "Peida" \u2014 toode kaob nimekirjast, aga ajalugu j\u00E4\u00E4b alles.');
+  if (takistajad.length || ridu) {
+    let txt = '"' + t.nimi + '" ei saa kustutada.\n\n';
+    if (takistajad.length) {
+      txt += takistajad.length + ' partii: '
+           + takistajad.map(p => p.partii_nr).join(', ') + '\n';
+    }
+    if (ridu) txt += ridu + ' tellimuse rida\n';
+    txt += '\nKui tegu on testiga, kustuta enne partiid — Partiid → Kõik partiid.\n'
+         + 'Kui toode on päris, aga ei ole enam kasutuses, kasuta "Peida" — '
+         + 'toode kaob nimekirjast, aga ajalugu jääb alles.';
+    alert(txt);
     return;
   }
   const suurusi = D.toote_suurused.filter(x => x.toode_id === id).length;
