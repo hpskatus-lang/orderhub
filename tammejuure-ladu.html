@@ -542,6 +542,7 @@ a { color: inherit; text-decoration: none; }
       <div id="view-ladu" class="view">
         <div class="tabs">
           <div class="tab active" onclick="showSub('ladu','saldo')">Laosaldo</div>
+          <div class="tab" onclick="showSub('ladu','inventuur')">Inventuur</div>
           <div class="tab" onclick="showSub('ladu','parandused')">Admin parandused</div>
         </div>
         <div id="ladu-saldo" class="sub-view active">
@@ -560,7 +561,11 @@ a { color: inherit; text-decoration: none; }
             </table>
           </div>
         </div>
+        <div id="ladu-inventuur" class="sub-view">
+          <div id="inv-admin"></div>
+        </div>
         <div id="ladu-parandused" class="sub-view">
+          <div id="par-ootel"></div>
           <div class="card">
             <div class="card-title">Lisa parandus (admin)</div>
             <div class="alert alert-warn">Kasuta ainult kui arvestus läks valesti. Kõik parandused logitakse.</div>
@@ -571,7 +576,14 @@ a { color: inherit; text-decoration: none; }
               </div>
               <div class="form-row">
                 <label class="form-label">Suurus</label>
-                <select id="par-suurus"></select>
+                <select id="par-suurus" onchange="updateParPartiid()"></select>
+              </div>
+            </div>
+            <div class="form-row">
+              <label class="form-label">Partii <span>*</span></label>
+              <select id="par-partii"></select>
+              <div class="text-small" style="color:var(--text3);margin-top:4px">
+                Iga parandus peab kuuluma partii alla — muidu katkeb mahe jälgitavus.
               </div>
             </div>
             <div class="g2">
@@ -589,7 +601,7 @@ a { color: inherit; text-decoration: none; }
           <div class="card">
             <div class="card-title">Paranduste logi</div>
             <table class="tbl">
-              <thead><tr><th>Kuupäev</th><th>Toode</th><th>Suurus</th><th>Muutus</th><th>Põhjus</th><th>Tegi</th></tr></thead>
+              <thead><tr><th>Kuupäev</th><th>Toode</th><th>Partii</th><th>Suurus</th><th>Muutus</th><th>Põhjus</th><th>Tegi</th></tr></thead>
               <tbody id="parandused-body"></tbody>
             </table>
           </div>
@@ -1003,11 +1015,15 @@ a { color: inherit; text-decoration: none; }
     <div class="pkj-tab active" id="pkjtab-pakkimine" onclick="showPkjTab('pakkimine')">Pakkimine</div>
     <div class="pkj-tab" id="pkjtab-mahakandmine" onclick="showPkjTab('mahakandmine')">Mahakandmine</div>
     <div class="pkj-tab" id="pkjtab-ladu" onclick="showPkjTab('ladu')">Laosaldo</div>
+    <div class="pkj-tab" id="pkjtab-inventuur" onclick="showPkjTab('inventuur')">Inventuur</div>
     <div class="pkj-tab" id="pkjtab-tellimused" onclick="showPkjTab('tellimused')">Tellimused</div>
   </div>
   <div class="pkj-content">
     <div class="teateriba" id="teateriba"></div>
 
+
+    <!-- PAKKIJA: INVENTUUR -->
+    <div id="pkj-inventuur" style="display:none"><div id="inv-pakkija"></div></div>
 
     <!-- PAKKIJA: PAKKIMINE -->
     <div id="pkj-pakkimine">
@@ -1956,6 +1972,244 @@ function kustutaPartii(id){
 }
 
 // ============================================================
+// INVENTUUR JA PARTIIGA SEOTUD PARANDUSED
+//
+// Inventuur ei ole eraldi arvestus — ta toodab neidsamu
+// laoparandusi, mis juba olemas, ainult partii kyljes ja
+// admini kinnituse taga.
+// ============================================================
+
+// ---------- Admini paranduse vormi partiivalik ----------
+function updateParPartiid(){
+  const sel = document.getElementById('par-partii');
+  if (!sel) return;
+  const toode_id = document.getElementById('par-toode').value;
+  const suurus   = document.getElementById('par-suurus').value;
+  const partiid = D.partiid.filter(p => p.toode_id === toode_id);
+  if (!partiid.length){
+    sel.innerHTML = '<option value="">— sellel tootel pole partiisid —</option>';
+    return;
+  }
+  sel.innerHTML = partiid.map(p => {
+    const laos = getLaduKogusPartiist(p.id, suurus);
+    return `<option value="${p.id}">${p.partii_nr} · laos ${laos} tk`
+         + (p.staatus !== 'aktiivne' ? ' · suletud' : '') + `</option>`;
+  }).join('');
+}
+
+// ---------- Inventuuri vaade ----------
+// Sama funktsioon teenindab nii admini kui pakkija vaadet.
+let invToode = {};
+
+function joonistaInventuur(mountId){
+  const el = document.getElementById(mountId);
+  if (!el) return;
+  const valitud = invToode[mountId] || '';
+  const admin = ['omanik','admin'].includes(currentUser.roll);
+
+  el.innerHTML =
+    (admin ? '<div id="inv-ootel-' + mountId + '"></div>' : '') +
+    '<div class="card">' +
+      '<div class="card-title">Inventuur — loe laoseis üle</div>' +
+      '<div class="alert alert-info mb12" style="font-size:12.5px">' +
+        'Vali toode, loe riiulist partii kaupa üle ja kirjuta tegelik arv. ' +
+        'Loendus läheb jõusse pärast admini kinnitust.' +
+      '</div>' +
+      '<div class="form-row">' +
+        '<label class="form-label">Toode</label>' +
+        '<select id="inv-toode-' + mountId + '" onchange="invVaheta(\'' + mountId + '\')">' +
+          '<option value="">Vali toode...</option>' +
+          D.tooted.filter(t => t.aktiivne !== false)
+            .map(t => `<option value="${t.id}"${t.id===valitud?' selected':''}>${t.nimi}</option>`).join('') +
+        '</select>' +
+      '</div>' +
+      '<div id="inv-read-' + mountId + '"></div>' +
+    '</div>';
+
+  if (admin) joonistaOotelParandused('inv-ootel-' + mountId);
+  if (valitud) invVaheta(mountId);
+}
+
+function invVaheta(mountId){
+  const sel = document.getElementById('inv-toode-' + mountId);
+  const toode_id = sel ? sel.value : '';
+  invToode[mountId] = toode_id;
+  const ala = document.getElementById('inv-read-' + mountId);
+  if (!ala) return;
+  if (!toode_id){ ala.innerHTML = ''; return; }
+
+  const t = getToode(toode_id);
+  const partiid = D.partiid.filter(p => p.toode_id === toode_id && p.staatus === 'aktiivne');
+  const suurused = getSuurused(toode_id);
+
+  if (!partiid.length){
+    ala.innerHTML = '<div class="alert alert-warn mt12">'
+      + '<strong>' + t.nimi + '</strong> — aktiivseid partiisid pole.<br>'
+      + 'Iga loendus peab kuuluma partii alla. Lisa enne partii.</div>';
+    return;
+  }
+  if (!suurused.length){
+    ala.innerHTML = '<div class="alert alert-warn mt12">Sellel tootel pole suurusi määratud.</div>';
+    return;
+  }
+
+  let ridu = '';
+  partiid.forEach(p => {
+    suurused.forEach(su => {
+      const laos = getLaduKogusPartiist(p.id, su.suurus);
+      const id = mountId + '-' + p.id + '-' + su.suurus.replace(/[^A-Za-z0-9]/g,'');
+      ridu += `<tr>
+        <td class="nw"><strong>${p.partii_nr}</strong></td>
+        <td class="nw">${su.suurus}</td>
+        <td class="nw">${fmtDate(p.parim_enne)}</td>
+        <td class="nw"><strong>${laos}</strong> tk</td>
+        <td style="width:110px">
+          <input type="number" min="0" style="width:100%" placeholder="loetud"
+                 data-partii="${p.id}" data-suurus="${su.suurus}" data-laos="${laos}"
+                 id="invr-${id}" oninput="invVahe('${id}')">
+        </td>
+        <td class="nw" id="invv-${id}" style="min-width:70px"></td>
+      </tr>`;
+    });
+  });
+
+  ala.innerHTML =
+    '<table class="tbl mt12"><thead><tr>'
+    + '<th>Partii</th><th>Suurus</th><th>Parim enne</th><th>Süsteemis</th><th>Loetud</th><th>Vahe</th>'
+    + '</tr></thead><tbody>' + ridu + '</tbody></table>'
+    + '<div class="form-row mt12"><label class="form-label">Märkus (vabatahtlik)</label>'
+    + '<input type="text" id="inv-markus-' + mountId + '" placeholder="nt riiul 3, loetud koos Mariga"></div>'
+    + '<button class="btn btn-primary mt8" onclick="salvestaLoendus(\'' + mountId + '\')">'
+    + 'Saada kinnitamiseks</button>'
+    + '<div class="text-small" style="color:var(--text3);margin-top:6px">'
+    + 'Salvestatakse ainult read, kus loetud arv erineb süsteemi omast.</div>';
+}
+
+// Naitab vahe kohe, kui arv sisestatakse
+function invVahe(id){
+  const sis = document.getElementById('invr-' + id);
+  const naidik = document.getElementById('invv-' + id);
+  if (!sis || !naidik) return;
+  if (sis.value === ''){ naidik.innerHTML = ''; return; }
+  const vahe = parseInt(sis.value) - parseInt(sis.dataset.laos);
+  naidik.innerHTML = vahe === 0
+    ? '<span class="badge b-green">klapib</span>'
+    : `<span class="badge ${vahe > 0 ? 'b-amber' : 'b-red'}">${vahe > 0 ? '+' : ''}${vahe}</span>`;
+}
+
+async function salvestaLoendus(mountId){
+  if (guardVaataja()) return;
+  const ala = document.getElementById('inv-read-' + mountId);
+  if (!ala) return;
+  const toode_id = invToode[mountId];
+  const markusEl = document.getElementById('inv-markus-' + mountId);
+  const markus = markusEl ? markusEl.value.trim() : '';
+
+  const read = [...ala.querySelectorAll('input[data-partii]')]
+    .filter(i => i.value !== '')
+    .map(i => ({
+      partii_id: i.dataset.partii,
+      suurus: i.dataset.suurus,
+      laos: parseInt(i.dataset.laos),
+      loetud: parseInt(i.value)
+    }))
+    .filter(r => r.loetud !== r.laos);
+
+  if (!read.length){ toast('Ühtegi erinevust ei leitud — midagi salvestada pole.', 'warn'); return; }
+
+  try {
+    const kirjed = read.map(r => ({
+      tarnija_id: D.tarnija_id,
+      toode_id,
+      partii_id: r.partii_id,
+      suurus: r.suurus,
+      muutus_tk: r.loetud - r.laos,
+      loetud_tk: r.loetud,
+      pohjus: 'Inventuur' + (markus ? ' — ' + markus : ''),
+      staatus: 'ootel',
+      tegi_kasutaja_id: currentUser.id
+    }));
+    const ins = await sb.post('ladu_parandused', kirjed);
+    (Array.isArray(ins) ? ins : [ins]).forEach(x => D.ladu_parandused.unshift(x));
+    toast(read.length + ' erinevust saadetud kinnitamiseks', 'green');
+    joonistaInventuur(mountId);
+  } catch(e){ toast('Viga: ' + e.message, 'red'); }
+}
+
+// ---------- Ootel loendused (ainult omanik/admin) ----------
+function joonistaOotelParandused(elId){
+  const el = document.getElementById(elId);
+  if (!el) return;
+  const ootel = D.ladu_parandused.filter(lp => lp.staatus === 'ootel');
+  if (!ootel.length){ el.innerHTML = ''; return; }
+
+  el.innerHTML = '<div class="card" style="border-color:#e0b050">'
+    + '<div class="card-title">Ootab kinnitust (' + ootel.length + ')</div>'
+    + '<table class="tbl"><thead><tr><th>Kuupäev</th><th>Toode</th><th>Partii</th>'
+    + '<th>Suurus</th><th>Loetud</th><th>Vahe</th><th>Tegi</th><th></th></tr></thead><tbody>'
+    + ootel.map(lp => {
+        const t = getToode(lp.toode_id);
+        const p = getPartii(lp.partii_id);
+        const k = getKasutaja(lp.tegi_kasutaja_id);
+        return `<tr>
+          <td class="nw">${fmtDateTime(lp.loodud)}</td>
+          <td>${t.nimi}</td>
+          <td class="nw">${p ? p.partii_nr : '—'}</td>
+          <td class="nw">${lp.suurus || '—'}</td>
+          <td class="nw">${lp.loetud_tk != null ? lp.loetud_tk + ' tk' : '—'}</td>
+          <td class="nw"><span class="badge ${lp.muutus_tk > 0 ? 'b-amber' : 'b-red'}">
+            ${lp.muutus_tk > 0 ? '+' : ''}${lp.muutus_tk}</span></td>
+          <td class="nw">${k.nimi}</td>
+          <td><div class="flex-gap">
+            <button class="btn btn-sm btn-green" onclick="kinnitaLoendus('${lp.id}')">Kinnita</button>
+            <button class="btn btn-sm btn-danger" onclick="lykkaLoendus('${lp.id}')">Lükka tagasi</button>
+          </div></td>
+        </tr>`;
+      }).join('')
+    + '</tbody></table></div>';
+}
+
+async function kinnitaLoendus(id){
+  if (!['omanik','admin'].includes(currentUser.roll)){
+    toast('Kinnitada saab ainult admin', 'warn'); return;
+  }
+  const lp = D.ladu_parandused.find(x => x.id === id);
+  if (!lp) return;
+  try {
+    await sb.patch('ladu_parandused', `id=eq.${id}`, {
+      staatus: 'kinnitatud', kinnitas_id: currentUser.id, kinnitatud: new Date().toISOString()
+    });
+    lp.staatus = 'kinnitatud'; lp.kinnitas_id = currentUser.id;
+    await uuendaLaduCache(lp.toode_id);
+    toast('Kinnitatud — laoseis uuendatud', 'green');
+    uuendaInventuuriVaated();
+  } catch(e){ toast('Viga: ' + e.message, 'red'); }
+}
+
+async function lykkaLoendus(id){
+  if (!['omanik','admin'].includes(currentUser.roll)){
+    toast('Seda saab teha ainult admin', 'warn'); return;
+  }
+  const lp = D.ladu_parandused.find(x => x.id === id);
+  if (!lp) return;
+  try {
+    await sb.patch('ladu_parandused', `id=eq.${id}`, {
+      staatus: 'tagasi_lykatud', kinnitas_id: currentUser.id, kinnitatud: new Date().toISOString()
+    });
+    lp.staatus = 'tagasi_lykatud';
+    toast('Tagasi lükatud — laoseis ei muutunud', 'green');
+    uuendaInventuuriVaated();
+  } catch(e){ toast('Viga: ' + e.message, 'red'); }
+}
+
+function uuendaInventuuriVaated(){
+  if (document.getElementById('inv-admin'))   joonistaInventuur('inv-admin');
+  if (document.getElementById('pkj-inventuur') &&
+      document.getElementById('pkj-inventuur').style.display !== 'none') joonistaInventuur('inv-pakkija');
+  if (document.getElementById('parandused-body')) renderParandused();
+}
+
+// ============================================================
 // TEATERIBA — nahtav koigile, lisada saavad koik
 // ============================================================
 function joonistaTeated(){
@@ -2139,8 +2393,18 @@ function getLaduKogusPartiist(partii_id, suurus) {
       return tel && tel.staatus === 'saadetud';
     })
     .reduce((s, tp) => s + (tp.kogus_tk || 0), 0);
-  return Math.max(0, pakitud - maha - myydud);
+  // Kinnitatud parandused selle partii kohta. Ilma nendeta laheb
+  // partii arvestus Laosaldo koguarvust lahku.
+  const parandused = D.ladu_parandused
+    .filter(lp => lp.partii_id === partii_id
+                && (!suurus || lp.suurus === suurus)
+                && onKinnitatud(lp))
+    .reduce((s, lp) => s + (lp.muutus_tk || 0), 0);
+  return Math.max(0, pakitud - maha - myydud + parandused);
 }
+
+// Vanal parandusel staatust ei ole — see on kinnitatud.
+function onKinnitatud(lp){ return (lp.staatus || 'kinnitatud') === 'kinnitatud'; }
 
 // ============================================================
 // UI HELPERS
@@ -2191,9 +2455,10 @@ function showSub(parent, name) {
   container.querySelectorAll('.sub-view').forEach(v => v.classList.remove('active'));
   container.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   document.getElementById(parent + '-' + name)?.classList.add('active');
-  const tabMap = { partiid: ['nimekiri','uus','jalgi'], ladu: ['saldo','parandused'], tellimused: ['nimekiri','uus'], seaded: ['kasutajad','piirid'], tooted: ['nimekiri','uus'], tooaeg: ['nimekiri','kokkuvote'] };
+  const tabMap = { partiid: ['nimekiri','uus','jalgi'], ladu: ['saldo','inventuur','parandused'], tellimused: ['nimekiri','uus'], seaded: ['kasutajad','piirid'], tooted: ['nimekiri','uus'], tooaeg: ['nimekiri','kokkuvote'] };
   const idx = (tabMap[parent] || []).indexOf(name);
   container.querySelectorAll('.tab')[idx]?.classList.add('active');
+  if (parent === 'ladu' && name === 'inventuur') joonistaInventuur('inv-admin');
   if (parent === 'partiid' && name === 'nimekiri') renderPartiid();
   if (parent === 'partiid' && name === 'uus') initUusPartii();
   if (parent === 'partiid' && name === 'jalgi') initJalgi();
@@ -2795,7 +3060,7 @@ async function uuendaLaduCache(toode_id) {
         return tel && tel.staatus === 'saadetud';
       }).reduce((sum, tp) => sum + (tp.kogus_tk || 0), 0);
     const parandused = D.ladu_parandused
-      .filter(lp => lp.toode_id === toode_id && lp.suurus === s.suurus)
+      .filter(lp => lp.toode_id === toode_id && lp.suurus === s.suurus && onKinnitatud(lp))
       .reduce((sum, lp) => sum + (lp.muutus_tk || 0), 0);
 
     const kogus = Math.max(0, pakitud - maha - myydud + parandused);
@@ -2877,24 +3142,36 @@ function renderParandused() {
   tSel.innerHTML += D.tooted.map(t => `<option value="${t.id}">${t.nimi}</option>`).join('');
   updateParSuurused();
 
+  updateParPartiid();
+  joonistaOotelParandused('par-ootel');
+
   const tbody = document.getElementById('parandused-body');
-  tbody.innerHTML = '';
+  let buf = '';
   D.ladu_parandused.forEach(lp => {
     const t = getToode(lp.toode_id);
     const k = getKasutaja(lp.tegi_kasutaja_id);
-    tbody.innerHTML += `<tr>
-      <td>${fmtDateTime(lp.loodud)}</td>
+    const p = lp.partii_id ? getPartii(lp.partii_id) : null;
+    const partiiSilt = p ? p.partii_nr
+      : '<span class="badge b-red" title="Vana parandus — ei kuulu ühegi partii alla">määramata</span>';
+    const st = lp.staatus || 'kinnitatud';
+    const stSilt = st === 'ootel' ? '<span class="badge b-amber">ootel</span>'
+                 : st === 'tagasi_lykatud' ? '<span class="badge b-gray">tagasi lükatud</span>' : '';
+    buf += `<tr${st !== 'kinnitatud' ? ' style="opacity:.6"' : ''}>
+      <td class="nw">${fmtDateTime(lp.loodud)}</td>
       <td>${t.nimi}</td>
-      <td>${lp.suurus || '—'}</td>
-      <td style="color:${lp.muutus_tk > 0 ? 'var(--green)' : 'var(--red)'};">${lp.muutus_tk > 0 ? '+' : ''}${lp.muutus_tk}</td>
-      <td>${lp.pohjus}</td>
-      <td>${k.nimi}</td>
+      <td class="nw">${partiiSilt}</td>
+      <td class="nw">${lp.suurus || '—'}</td>
+      <td class="nw" style="color:${lp.muutus_tk > 0 ? 'var(--green)' : 'var(--red)'};">${lp.muutus_tk > 0 ? '+' : ''}${lp.muutus_tk}</td>
+      <td>${lp.pohjus} ${stSilt}</td>
+      <td class="nw">${k.nimi}</td>
     </tr>`;
   });
-  if (D.ladu_parandused.length === 0) tbody.innerHTML = '<tr><td colspan="6" class="tbl-empty">Parandusi pole</td></tr>';
+  tbody.innerHTML = buf;
+  if (D.ladu_parandused.length === 0) tbody.innerHTML = '<tr><td colspan="7" class="tbl-empty">Parandusi pole</td></tr>';
 }
 
 function updateParSuurused() {
+  setTimeout(updateParPartiid, 0);
   const toode_id = document.getElementById('par-toode').value;
   const sel = document.getElementById('par-suurus');
   sel.innerHTML = '';
@@ -2907,11 +3184,15 @@ async function saveParandus() {
   const suurus = document.getElementById('par-suurus').value;
   const muutus = parseInt(document.getElementById('par-muutus').value);
   const pohjus = document.getElementById('par-pohjus').value.trim();
+  const partii_id = document.getElementById('par-partii').value;
   if (!muutus || !pohjus) { toast('Täida kõik väljad!', 'warn'); return; }
+  if (!partii_id) { toast('Vali partii — iga parandus peab kuuluma partii alla', 'warn'); return; }
   try {
     const ins = await sb.post('ladu_parandused', {
-      tarnija_id: D.tarnija_id, toode_id, suurus,
+      tarnija_id: D.tarnija_id, toode_id, suurus, partii_id,
       muutus_tk: muutus, pohjus,
+      staatus: 'kinnitatud',
+      kinnitas_id: currentUser.id, kinnitatud: new Date().toISOString(),
       tegi_kasutaja_id: currentUser.id
     });
     D.ladu_parandused.unshift(ins[0]);
@@ -3784,7 +4065,7 @@ function initPakkija() {
 }
 
 function showPkjTab(name) {
-  ['pakkimine','mahakandmine','ladu','tellimused'].forEach(t => {
+  ['pakkimine','mahakandmine','ladu','tellimused','inventuur'].forEach(t => {
     document.getElementById('pkj-' + t).style.display = 'none';
     document.getElementById('pkjtab-' + t).classList.remove('active');
   });
@@ -3792,6 +4073,7 @@ function showPkjTab(name) {
   document.getElementById('pkjtab-' + name).classList.add('active');
   if (name === 'ladu') pkjRenderLadu();
   if (name === 'tellimused') pkjRenderTellimused();
+  if (name === 'inventuur') joonistaInventuur('inv-pakkija');
 }
 
 function pkjUpdatePartii() {
