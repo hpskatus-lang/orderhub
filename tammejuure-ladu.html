@@ -320,7 +320,7 @@ a { color: inherit; text-decoration: none; }
   <div id="sidebar">
     <div class="sb-logo">
       <div class="sb-logo-title">🌾 Tammejuure</div>
-      <div class="sb-logo-sub">Laohaldus v1.0</div>
+      <div class="sb-logo-sub" id="sb-versioon" title="Millal see versioon üles laaditi">Laohaldus</div>
     </div>
     <div id="sb-vaheta" style="display:none;padding:0 14px 10px">
       <button class="btn btn-sm" style="width:100%" onclick="naitaPakkijaVaadet()">📦 Vaata pakkijana</button>
@@ -2267,6 +2267,18 @@ function guardVaataja() {
   return false;
 }
 
+// Versioon tuleb faili enda muutmisajast, mille server kaasa saadab.
+// Nii ei pea keegi numbrit meeles pidama ega kasitsi muutma.
+function naitaVersiooni(){
+  const el = document.getElementById('sb-versioon');
+  if (!el) return;
+  const d = new Date(document.lastModified);
+  if (isNaN(d)) return;
+  const p = n => String(n).padStart(2,'0');
+  el.textContent = 'Laohaldus \u00b7 ' + p(d.getDate()) + '.' + p(d.getMonth()+1) +
+                   ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
+}
+
 function taidaTarnijaValjad() {
   const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
   set('pdf-tarnija', tarnijaNimi());
@@ -2293,6 +2305,7 @@ function startSession() {
     if (vahetaja) vahetaja.style.display = isVaataja() ? 'none' : 'block';
     taidaTarnijaValjad();
     taidaKategooriad();
+    naitaVersiooni();
     seaKoikTabelid();
     joonistaTeated();
     renderDashboard();
@@ -2300,7 +2313,8 @@ function startSession() {
     document.getElementById('pakkija-screen').style.display = 'block';
     document.getElementById('pkj-nimi').textContent = currentUser.nimi;
     document.getElementById('pkj-kpv').textContent = new Date().toLocaleDateString('et-EE', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
-    joonistaTeated();
+    naitaVersiooni();
+  joonistaTeated();
   initPakkija();
   }
 }
@@ -4028,10 +4042,11 @@ function renderTooted() {
     el.innerHTML = '<div class="card"><div class="alert alert-warn">Tooteid pole lisatud. <a href="#" onclick="showSub(\'tooted\',\'uus\')">Lisa esimene toode →</a></div></div>';
     return;
   }
+  let toodeBuf = '';
   D.tooted.forEach(t => {
     const suurused = getSuurused(t.id);
     const laos = getLaduKokku(t.id);
-    el.innerHTML += `<div class="card mb8">
+    toodeBuf += `<div class="card mb8">
       <div class="flex-between mb8">
         <div>
           <span class="fw600">${t.nimi}</span>
@@ -4052,6 +4067,7 @@ function renderTooted() {
       </div>
     </div>`;
   });
+  el.innerHTML = toodeBuf;
 }
 
 function initUusToode() {
