@@ -2446,7 +2446,7 @@ function renderPartiid() {
   // Filter select täitmine
   const fSel = document.getElementById('partii-f-toode');
   if (fSel.options.length <= 1) {
-    D.tooted.forEach(t => fSel.innerHTML += `<option value="${t.id}">${t.nimi}</option>`);
+    fSel.innerHTML += D.tooted.map(t => `<option value="${t.id}">${t.nimi}</option>`).join('');
   }
   const filterToode = fSel.value;
   const filterOlek = document.getElementById('partii-f-olek').value;
@@ -2464,6 +2464,7 @@ function renderPartiid() {
     return;
   }
 
+  let partiiBuf = '';
   partiid.forEach(p => {
     const t = getToode(p.toode_id);
     const fifoList = getPartiidFifo(p.toode_id);
@@ -2480,7 +2481,7 @@ function renderPartiid() {
     const olekBadge = p.staatus === 'aktiivne' ? '<span class="badge b-green">Aktiivne</span>' : '<span class="badge b-gray">Suletud</span>';
     const lisas = getKasutaja(p.lisas_kasutaja_id);
 
-    tbody.innerHTML += `<tr>
+    partiiBuf += `<tr>
       <td><strong>${t.nimi}</strong></td>
       <td class="nw"><strong>${p.partii_nr}</strong></td>
       <td>${fmtDate(p.tootmiskuupaev)}</td>
@@ -2501,12 +2502,13 @@ function renderPartiid() {
       </td>
     </tr>`;
   });
+  tbody.innerHTML = partiiBuf;
 }
 
 function initUusPartii() {
   const sel = document.getElementById('p-toode');
   sel.innerHTML = '';
-  D.tooted.forEach(t => sel.innerHTML += `<option value="${t.id}">${t.nimi}</option>`);
+  sel.innerHTML += D.tooted.map(t => `<option value="${t.id}">${t.nimi}</option>`).join('');
   document.getElementById('p-kpv').value = today();
   document.getElementById('p-nr').value = '';
   document.getElementById('p-kg').value = '';
@@ -2641,11 +2643,11 @@ function showJalgi() {
 function renderPakkimine() {
   const tSel = document.getElementById('pk-toode');
   tSel.innerHTML = '';
-  D.tooted.forEach(t => tSel.innerHTML += `<option value="${t.id}">${t.nimi}</option>`);
+  tSel.innerHTML += D.tooted.map(t => `<option value="${t.id}">${t.nimi}</option>`).join('');
 
   const kSel = document.getElementById('pk-kasutaja');
   kSel.innerHTML = '';
-  D.profiilid.forEach(k => kSel.innerHTML += `<option value="${k.id}"${k.id===currentUser.id?' selected':''}>${k.nimi}</option>`);
+  kSel.innerHTML += D.profiilid.map(k => `<option value="${k.id}"${k.id===currentUser.id?' selected':''}>${k.nimi}</option>`).join('');
 
   document.getElementById('pk-kpv').value = today();
   document.getElementById('pk-algus').value = nowTime();
@@ -2819,30 +2821,31 @@ function renderLadu() {
     if (tabs[1]) tabs[1].style.display = 'none';
   }
   const bars = document.getElementById('ladu-bars');
-  bars.innerHTML = '';
+  let barsBuf = '';
   D.tooted.forEach(t => {
     const laos = getLaduKokku(t.id);
     const piir = getPiirmaar(t.id);
     const max = Math.max(piir * 3, laos + 10, 50);
     const pct = Math.min(100, Math.round(laos / max * 100));
     const cls = laos < piir ? 'bar-low' : laos < piir * 1.5 ? 'bar-mid' : 'bar-ok';
-    bars.innerHTML += `<div class="bar-row">
+    barsBuf += `<div class="bar-row">
       <span class="bar-name">${t.nimi}</span>
       <div class="bar-wrap"><div class="bar-fill ${cls}" style="width:${pct}%"></div></div>
       <span class="bar-num">${laos} tk</span>
       ${laos < piir ? '<span class="badge b-red" style="margin-left:4px;">Madal</span>' : ''}
     </div>`;
   });
+  bars.innerHTML = barsBuf;
 
   const tbody = document.getElementById('ladu-detail-body');
-  tbody.innerHTML = '';
+  let laduBuf = '';
   D.tooted.forEach(t => {
     const suurused = getSuurused(t.id);
     suurused.forEach(s => {
       const laos = getLaduKogus(t.id, s.suurus);
       const piir = getPiirmaar(t.id);
       const cls = laos < piir ? 'b-red' : laos < piir * 1.5 ? 'b-amber' : 'b-green';
-      tbody.innerHTML += `<tr>
+      laduBuf += `<tr>
         <td>${t.nimi}</td>
         <td><strong>${s.suurus}</strong></td>
         <td>${laos}</td>
@@ -2851,12 +2854,13 @@ function renderLadu() {
       </tr>`;
     });
   });
+  tbody.innerHTML = laduBuf;
 }
 
 function renderParandused() {
   const tSel = document.getElementById('par-toode');
   tSel.innerHTML = '';
-  D.tooted.forEach(t => tSel.innerHTML += `<option value="${t.id}">${t.nimi}</option>`);
+  tSel.innerHTML += D.tooted.map(t => `<option value="${t.id}">${t.nimi}</option>`).join('');
   updateParSuurused();
 
   const tbody = document.getElementById('parandused-body');
@@ -2880,7 +2884,7 @@ function updateParSuurused() {
   const toode_id = document.getElementById('par-toode').value;
   const sel = document.getElementById('par-suurus');
   sel.innerHTML = '';
-  getSuurused(toode_id).forEach(s => sel.innerHTML += `<option value="${s.suurus}">${s.suurus}</option>`);
+  sel.innerHTML += getSuurused(toode_id).map(s => `<option value="${s.suurus}">${s.suurus}</option>`).join('');
 }
 
 async function saveParandus() {
@@ -2911,7 +2915,7 @@ async function saveParandus() {
 function renderMahakandmised() {
   const tSel = document.getElementById('mh-toode');
   tSel.innerHTML = '';
-  D.tooted.forEach(t => tSel.innerHTML += `<option value="${t.id}">${t.nimi}</option>`);
+  tSel.innerHTML += D.tooted.map(t => `<option value="${t.id}">${t.nimi}</option>`).join('');
   updateMhPartii();
 
   const tbody = document.getElementById('mh-body');
@@ -2937,10 +2941,10 @@ function updateMhPartii() {
   const toode_id = document.getElementById('mh-toode').value;
   const pSel = document.getElementById('mh-partii');
   pSel.innerHTML = '<option value="">Vali partii...</option>';
-  getPartiidFifo(toode_id).forEach(p => pSel.innerHTML += `<option value="${p.id}">${p.partii_nr} (${fmtDate(p.tootmiskuupaev)})</option>`);
+  pSel.innerHTML += getPartiidFifo(toode_id).map(p => `<option value="${p.id}">${p.partii_nr} (${fmtDate(p.tootmiskuupaev)})</option>`).join('');
   const sSel = document.getElementById('mh-suurus');
   sSel.innerHTML = '<option value="">Kõik suurused</option>';
-  getSuurused(toode_id).forEach(s => sSel.innerHTML += `<option value="${s.suurus}">${s.suurus}</option>`);
+  sSel.innerHTML += getSuurused(toode_id).map(s => `<option value="${s.suurus}">${s.suurus}</option>`).join('');
 }
 
 async function saveMahakandmine() {
@@ -2986,7 +2990,7 @@ function renderMaterjalid() {
   });
   const sel = document.getElementById('mat-sel');
   sel.innerHTML = '';
-  D.materjalid.forEach(m => sel.innerHTML += `<option value="${m.id}">${m.nimetus}</option>`);
+  sel.innerHTML += D.materjalid.map(m => `<option value="${m.id}">${m.nimetus}</option>`).join('');
 }
 
 async function addMaterjal() {
@@ -3106,11 +3110,11 @@ function initUusTellimus() {
   telItems = [];
   const kSel = document.getElementById('t-klient');
   kSel.innerHTML = '<option value="">Vali klient...</option>';
-  D.kliendid.forEach(k => kSel.innerHTML += `<option value="${k.id}">${k.nimi}</option>`);
+  kSel.innerHTML += D.kliendid.map(k => `<option value="${k.id}">${k.nimi}</option>`).join('');
 
   const tSel = document.getElementById('t-add-toode');
   tSel.innerHTML = '';
-  D.tooted.forEach(t => tSel.innerHTML += `<option value="${t.id}">${t.nimi}</option>`);
+  tSel.innerHTML += D.tooted.map(t => `<option value="${t.id}">${t.nimi}</option>`).join('');
   updateTAddSuurused();
 
   document.getElementById('t-items-body').innerHTML = '';
@@ -3122,7 +3126,7 @@ function updateTAddSuurused() {
   const toode_id = document.getElementById('t-add-toode').value;
   const sel = document.getElementById('t-add-suurus');
   sel.innerHTML = '';
-  getSuurused(toode_id).forEach(s => sel.innerHTML += `<option value="${s.suurus}">${s.suurus}</option>`);
+  sel.innerHTML += getSuurused(toode_id).map(s => `<option value="${s.suurus}">${s.suurus}</option>`).join('');
 }
 
 function taidaTarnekohad(){
@@ -3609,7 +3613,7 @@ async function deleteKlient(id) {
 // ============================================================
 function renderRaportid() {
   const sel = document.getElementById('r-toode');
-  if (sel.options.length <= 1) D.tooted.forEach(t => sel.innerHTML += `<option value="${t.id}">${t.nimi}</option>`);
+  if (sel.options.length <= 1) sel.innerHTML += D.tooted.map(t => `<option value="${t.id}">${t.nimi}</option>`).join('');
   const now = new Date();
   document.getElementById('r-algus').value = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0,10);
   document.getElementById('r-lopp').value = today();
@@ -3751,12 +3755,12 @@ async function savePiirid() {
 function initPakkija() {
   const tSel = document.getElementById('pkj-toode');
   tSel.innerHTML = '';
-  D.tooted.forEach(t => tSel.innerHTML += `<option value="${t.id}">${t.nimi}</option>`);
+  tSel.innerHTML += D.tooted.map(t => `<option value="${t.id}">${t.nimi}</option>`).join('');
   pkjUpdatePartii();
 
   const mhSel = document.getElementById('pkj-mh-toode');
   mhSel.innerHTML = '';
-  D.tooted.forEach(t => mhSel.innerHTML += `<option value="${t.id}">${t.nimi}</option>`);
+  mhSel.innerHTML += D.tooted.map(t => `<option value="${t.id}">${t.nimi}</option>`).join('');
   pkjUpdateMhPartii();
 
   pkjRenderLadu();
@@ -3780,7 +3784,7 @@ function pkjUpdatePartii() {
   const toode_id = document.getElementById('pkj-toode').value;
   const sel = document.getElementById('pkj-partii-sel');
   sel.innerHTML = '<option value="">Vali partii...</option>';
-  getPartiidFifo(toode_id).forEach(p => sel.innerHTML += `<option value="${p.id}">${p.partii_nr} (${fmtDate(p.tootmiskuupaev)})</option>`);
+  sel.innerHTML += getPartiidFifo(toode_id).map(p => `<option value="${p.id}">${p.partii_nr} (${fmtDate(p.tootmiskuupaev)})</option>`).join('');
   pkjRenderRows(toode_id);
   pkjCalc();
 }
@@ -3895,10 +3899,10 @@ function pkjUpdateMhPartii() {
   const toode_id = document.getElementById('pkj-mh-toode').value;
   const pSel = document.getElementById('pkj-mh-partii');
   pSel.innerHTML = '<option value="">Vali partii...</option>';
-  getPartiidFifo(toode_id).forEach(p => pSel.innerHTML += `<option value="${p.id}">${p.partii_nr}</option>`);
+  pSel.innerHTML += getPartiidFifo(toode_id).map(p => `<option value="${p.id}">${p.partii_nr}</option>`).join('');
   const sSel = document.getElementById('pkj-mh-suurus');
   sSel.innerHTML = '<option value="">Kõik suurused</option>';
-  getSuurused(toode_id).forEach(s => sSel.innerHTML += `<option value="${s.suurus}">${s.suurus}</option>`);
+  sSel.innerHTML += getSuurused(toode_id).map(s => `<option value="${s.suurus}">${s.suurus}</option>`).join('');
 }
 
 async function pkjSaveMahakandmine() {
@@ -4802,7 +4806,7 @@ function openTooaegModal() {
 
   const kSel = document.getElementById('tm-kasutaja');
   kSel.innerHTML = '';
-  D.profiilid.forEach(k => kSel.innerHTML += `<option value="${k.id}"${k.id === currentUser.id ? ' selected' : ''}>${k.nimi}</option>`);
+  kSel.innerHTML += D.profiilid.map(k => `<option value="${k.id}"${k.id === currentUser.id ? ' selected' : ''}>${k.nimi}</option>`).join('');
 
   const pSel = document.getElementById('tm-partii');
   pSel.innerHTML = '<option value="">Vali partii...</option>';
