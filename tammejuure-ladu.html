@@ -1542,22 +1542,22 @@ function hdr() {
 
 const sb = {
   async get(table, params = '') {
-    const r = await fetch(`${SB_URL}/rest/v1/${table}${params ? '?' + params : ''}`, { headers: hdr() });
+    const r = await fetch(`${SB_URL}/rest/v1/${table}${params ? '?' + params : ''}`, { headers: hdr(), signal: AbortSignal.timeout(20000) });
     if (!r.ok) throw new Error(await r.text());
     return r.json();
   },
   async post(table, data) {
-    const r = await fetch(`${SB_URL}/rest/v1/${table}`, { method: 'POST', headers: hdr(), body: JSON.stringify(data) });
+    const r = await fetch(`${SB_URL}/rest/v1/${table}`, { method: 'POST', headers: hdr(), body: JSON.stringify(data), signal: AbortSignal.timeout(20000) });
     if (!r.ok) throw new Error(await r.text());
     return r.json();
   },
   async patch(table, filter, data) {
-    const r = await fetch(`${SB_URL}/rest/v1/${table}?${filter}`, { method: 'PATCH', headers: hdr(), body: JSON.stringify(data) });
+    const r = await fetch(`${SB_URL}/rest/v1/${table}?${filter}`, { method: 'PATCH', headers: hdr(), body: JSON.stringify(data), signal: AbortSignal.timeout(20000) });
     if (!r.ok) throw new Error(await r.text());
     return r.json();
   },
   async del(table, filter) {
-    const r = await fetch(`${SB_URL}/rest/v1/${table}?${filter}`, { method: 'DELETE', headers: hdr() });
+    const r = await fetch(`${SB_URL}/rest/v1/${table}?${filter}`, { method: 'DELETE', headers: hdr(), signal: AbortSignal.timeout(20000) });
     if (!r.ok) throw new Error(await r.text());
     return true;
   }
@@ -2218,7 +2218,8 @@ async function doLogin() {
     const r = await fetch(`${SB_URL}/auth/v1/token?grant_type=password`, {
       method: 'POST',
       headers: { 'apikey': SB_KEY, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password: pass })
+      body: JSON.stringify({ email, password: pass }),
+      signal: AbortSignal.timeout(20000)
     });
     if (!r.ok) { err.textContent = 'Vale e-post voi parool.'; err.style.display = 'block'; return; }
     const sess = await r.json();
@@ -2252,7 +2253,8 @@ async function uuendaToken(refresh_token) {
   const r = await fetch(`${SB_URL}/auth/v1/token?grant_type=refresh_token`, {
     method: 'POST',
     headers: { 'apikey': SB_KEY, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ refresh_token })
+    body: JSON.stringify({ refresh_token }),
+    signal: AbortSignal.timeout(20000)
   });
   if (!r.ok) throw new Error('Sessioon aegunud');
   return r.json();
@@ -4907,8 +4909,19 @@ async function savePartiiEdit() {
     await alustaSessioon(sess);
   } catch(e) {
     showLoading(false);
-    localStorage.removeItem('tj_sess');
     console.error('Sessiooni taastamine ebaonnestus:', e);
+    // Vorgu- voi ajalimiidi viga ei tahenda, et sessioon on halb —
+    // andmebaas voib lihtsalt magada. Siis ei tohi sessiooni ara visata.
+    const vorguviga = e.name === 'TimeoutError' || e.name === 'AbortError' ||
+                      /fetch|network|Failed/i.test(e.message || '');
+    if (!vorguviga) localStorage.removeItem('tj_sess');
+    const el = document.getElementById('l-err');
+    if (el){
+      el.innerHTML = vorguviga
+        ? 'Andmebaas ei vasta.<br><span style="font-weight:400">Kontrolli, kas Supabase projekt on aktiivne, ja proovi uuesti.</span>'
+        : 'Sessioon aegus. Logi palun uuesti sisse.';
+      el.style.display = 'block';
+    }
   }
 })();
 </script>
