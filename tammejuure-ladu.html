@@ -231,10 +231,19 @@ a { color: inherit; text-decoration: none; }
 @media print { .eiprindi, .modal-footer { display:none !important; } .sildid { grid-template-columns:repeat(3,1fr); } }
 .sort-th { cursor:pointer; user-select:none; position:relative; padding-right:16px !important; }
 .sort-th:hover { color:var(--text); }
-.sort-th::after { content:'\2195'; position:absolute; right:4px; opacity:.25; font-size:10px; }
+.sort-th::after { content:'\2195'; position:absolute; right:4px; opacity:0; font-size:10px; transition:opacity .12s; }
+.sort-th:hover::after { opacity:.45; }
 .sort-th.sort-asc::after  { content:'\2191'; opacity:1; color:var(--green); }
 .sort-th.sort-desc::after { content:'\2193'; opacity:1; color:var(--green); }
 #print-ala { display:none; }
+
+/* Tabeli reanupud mahuvad uhele reale ega domineeri pilti */
+.tbl td .flex-gap { flex-wrap: nowrap; gap: 4px; justify-content: flex-end; }
+.tbl td .btn-sm { padding: 3px 8px; font-size: 11.5px; }
+.tbl td .btn-danger { background: transparent; color: #b91c1c; border-color: var(--border2); }
+.tbl td .btn-danger:hover { background: #b91c1c; color: #fff; border-color: #b91c1c; }
+.tbl td:last-child { white-space: nowrap; width: 1%; }
+.nw { white-space: nowrap; }
 
 @media print {
   #print-ala.print-area { display:block; }
@@ -413,7 +422,7 @@ a { color: inherit; text-decoration: none; }
                 <option value="suletud">Suletud</option>
                 <option value="koik">Kõik</option>
               </select>
-              <button class="btn btn-sm eiprindi" onclick="prindiTabel('partiid-body','Partiid')">\U0001F5A8 Prindi</button>
+              <button class="btn btn-sm eiprindi" onclick="prindiTabel('partiid-body','Partiid')">Prindi</button>
             </div>
             <table class="tbl">
               <thead><tr><th>Toode</th><th>Partii nr</th><th>Tootmiskuupäev</th><th>Parim enne</th><th>Lig. kg</th><th>Pakitud</th><th>FIFO</th><th>Olek</th><th></th></tr></thead>
@@ -543,7 +552,7 @@ a { color: inherit; text-decoration: none; }
           <div class="card">
             <div class="flex-between" style="margin-bottom:10px">
               <div class="card-title" style="margin:0">Detailne saldo suuruste järgi</div>
-              <button class="btn btn-sm eiprindi" onclick="prindiTabel('ladu-detail-body','Laoseis')">\U0001F5A8 Prindi</button>
+              <button class="btn btn-sm eiprindi" onclick="prindiTabel('ladu-detail-body','Laoseis')">Prindi</button>
             </div>
             <table class="tbl">
               <thead><tr><th>Toode</th><th>Suurus</th><th>Laos</th><th>Piirmäär</th><th>Olek</th></tr></thead>
@@ -620,7 +629,7 @@ a { color: inherit; text-decoration: none; }
         <div class="card">
           <div class="flex-between" style="margin-bottom:10px">
             <div class="card-title" style="margin:0">Mahakandmiste logi</div>
-            <button class="btn btn-sm eiprindi" onclick="prindiTabel('mh-body','Mahakandmised')">\U0001F5A8 Prindi</button>
+            <button class="btn btn-sm eiprindi" onclick="prindiTabel('mh-body','Mahakandmised')">Prindi</button>
           </div>
           <table class="tbl">
             <thead><tr><th>Kuupäev</th><th>Toode</th><th>Partii</th><th>Suurus</th><th>Kogus</th><th>Põhjus</th><th>Tegi</th></tr></thead>
@@ -634,7 +643,7 @@ a { color: inherit; text-decoration: none; }
         <div class="card">
           <div class="flex-between" style="margin-bottom:10px">
             <div class="card-title" style="margin:0">Pakendmaterjalide saldo</div>
-            <button class="btn btn-sm eiprindi" onclick="prindiTabel('mat-body','Pakendmaterjalide saldo')">\U0001F5A8 Prindi</button>
+            <button class="btn btn-sm eiprindi" onclick="prindiTabel('mat-body','Pakendmaterjalide saldo')">Prindi</button>
           </div>
           <table class="tbl">
             <thead><tr><th>Materjal</th><th>Laos</th><th>Piirmäär</th><th>Olek</th><th></th></tr></thead>
@@ -696,7 +705,7 @@ a { color: inherit; text-decoration: none; }
           <div class="card">
             <div class="flex-between" style="margin-bottom:10px">
               <div class="card-title" style="margin:0">Tellimused</div>
-              <button class="btn btn-sm eiprindi" onclick="prindiTabel('tel-body','Tellimused')">\U0001F5A8 Prindi</button>
+              <button class="btn btn-sm eiprindi" onclick="prindiTabel('tel-body','Tellimused')">Prindi</button>
             </div>
             <table class="tbl">
               <thead><tr><th>Nr</th><th>Kuupäev</th><th>Klient</th><th>Tooted</th><th>Kanal</th><th>Olek</th><th></th></tr></thead>
@@ -1770,12 +1779,18 @@ function seaKoikTabelid(){
       th.addEventListener('click', () => sordiTabel(tabel, idx));
     });
 
-    // Uuesti joonistamine ei tohi sorti ara kaotada
+    // Uuesti joonistamine ei tohi sorti ara kaotada.
+    // Kood ehitab tabeli innerHTML += abil rea kaupa, nii et muudatusi
+    // tuleb kumnete kaupa — ootame, kuni jada loppeb, ja sordime korra.
+    let ootel;
     new MutationObserver(() => {
       if (tabel.dataset.sortIdx === undefined || tabel.dataset.sorting) return;
-      tabel.dataset.sorting = '1';
-      rakendaSort(tabel);
-      delete tabel.dataset.sorting;
+      clearTimeout(ootel);
+      ootel = setTimeout(() => {
+        tabel.dataset.sorting = '1';
+        rakendaSort(tabel);
+        delete tabel.dataset.sorting;
+      }, 40);
     }).observe(tabel.tBodies[0], { childList: true });
   });
 }
@@ -2465,10 +2480,10 @@ function renderPartiid() {
 
     tbody.innerHTML += `<tr>
       <td><strong>${t.nimi}</strong></td>
-      <td><strong>${p.partii_nr}</strong></td>
+      <td class="nw"><strong>${p.partii_nr}</strong></td>
       <td>${fmtDate(p.tootmiskuupaev)}</td>
       <td>${fmtDate(p.parim_enne)} ${parimBadge}</td>
-      <td>${p.ligikaudne_kg ? '~' + p.ligikaudne_kg + ' kg' : '—'}</td>
+      <td class="nw">${p.ligikaudne_kg ? '~' + p.ligikaudne_kg + ' kg' : '—'}</td>
       <td>${pakitud} tk</td>
       <td>${fifoBadge}</td>
       <td>${olekBadge}</td>
