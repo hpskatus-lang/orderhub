@@ -2536,7 +2536,7 @@ function guardVaataja() {
 // Nii ei pea keegi numbrit meeles pidama ega kasitsi muutma.
 // Versiooninumber. Tosta seda iga sisulise muudatusega.
 // Mida tapselt muudeti, seda naitab GitHubi ajalugu.
-const VERSIOON = 'v3.0';
+const VERSIOON = 'v3.1';
 
 function naitaVersiooni(){
   const el = document.getElementById('sb-versioon');
@@ -4490,16 +4490,25 @@ async function kustutaToode(id) {
   if (!t) return;
 
   // Kontrolli, kas toode on juba kasutuses
+  // Koik, mis toote kyljes ripub. Andmebaas keeldub kustutamast,
+  // kui kasvoi yks neist on alles, seega kontrollime neid koiki siin —
+  // muidu jouab kasutajani toores Postgresi viga.
   const takistajad = D.partiid.filter(p => p.toode_id === id);
-  const ridu = D.tellimuse_read.filter(r => r.toode_id === id).length;
-  if (takistajad.length || ridu) {
+  const ridu  = D.tellimuse_read.filter(r => r.toode_id === id).length;
+  const mahad = D.mahakandmised.filter(m => m.toode_id === id).length;
+  const par   = D.ladu_parandused.filter(x => x.toode_id === id).length;
+  if (takistajad.length || ridu || mahad || par) {
     let txt = '"' + t.nimi + '" ei saa kustutada.\n\n';
     if (takistajad.length) {
       txt += takistajad.length + ' partii: '
            + takistajad.map(p => p.partii_nr).join(', ') + '\n';
     }
-    if (ridu) txt += ridu + ' tellimuse rida\n';
-    txt += '\nKui tegu on testiga, kustuta enne partiid — Partiid → Kõik partiid.\n'
+    if (ridu)  txt += ridu + ' tellimuse rida\n';
+    if (mahad) txt += mahad + ' mahakandmist\n';
+    if (par)   txt += par + ' laoparandust\n';
+    txt += '\nPartiisid saab kustutada: Partiid → Kõik partiid.\n'
+         + 'Mahakandmisi ja laoparandusi programmist ei kustutata — need on\n'
+         + 'jälgitavuse kirjed ja peavad alles jääma.\n\n'
          + 'Kui toode on päris, aga ei ole enam kasutuses, kasuta "Peida" — '
          + 'toode kaob nimekirjast, aga ajalugu jääb alles.';
     alert(txt);
