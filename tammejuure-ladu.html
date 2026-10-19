@@ -349,6 +349,7 @@ a { color: inherit; text-decoration: none; }
     <div class="sb-section">
       <div class="sb-section-label">Raportid</div>
       <div class="nav-item" onclick="showView('raportid')" data-view="raportid"><span class="nav-icon">📄</span>Mahe jälgitavus</div>
+      <div class="nav-item" onclick="showView('invleht')" data-view="invleht"><span class="nav-icon">📋</span>Inventuuri leht</div>
     </div>
     <div class="sb-section">
       <div class="sb-section-label">Seaded</div>
@@ -950,6 +951,23 @@ a { color: inherit; text-decoration: none; }
           <button class="btn btn-primary mt8" onclick="genRaport()">Genereeri aruanne</button>
         </div>
         <div id="raport-result"></div>
+      </div>
+
+      <div id="view-invleht" class="view">
+        <div class="card eiprindi">
+          <div class="card-title">Inventuuri koondleht</div>
+          <div class="alert alert-info mb12" style="font-size:12.5px">
+            Üks leht ühe päeva kohta. Lehel on kõik tooted ja suurused —
+            ka need, mida ei loetud. Nii on näha nii see, mis jäi tegemata,
+            kui ka see, mis on päriselt otsas.
+          </div>
+          <div class="flex-gap">
+            <input type="date" id="il-kpv" style="width:170px">
+            <button class="btn btn-primary" onclick="renderInvLeht()">Näita</button>
+            <button class="btn" onclick="prindiInvLeht()">Prindi / PDF</button>
+          </div>
+        </div>
+        <div id="invleht-result"></div>
       </div>
 
       <!-- SEADED -->
@@ -2105,6 +2123,7 @@ async function salvestaLoendus(mountId){
   const markusEl = document.getElementById('inv-markus-' + mountId);
   const markus = markusEl ? markusEl.value.trim() : '';
 
+  // Koik taidetud read, ka need kus vahe on null.
   const read = [...ala.querySelectorAll('input[data-partii]')]
     .filter(i => i.value !== '')
     .map(i => ({
@@ -2112,10 +2131,17 @@ async function salvestaLoendus(mountId){
       suurus: i.dataset.suurus,
       laos: parseInt(i.dataset.laos),
       loetud: parseInt(i.value)
-    }))
-    .filter(r => r.loetud !== r.laos);
+    }));
 
-  if (!read.length){ toast('Ühtegi erinevust ei leitud — midagi salvestada pole.', 'warn'); return; }
+  if (!read.length){ toast('Ühtegi rida pole täidetud.', 'warn'); return; }
+
+  // Yks salvestus = yks loendus. Tunnus seob read kokku, et
+  // inventuuri lehe saaks hiljem kokku panna.
+  const inv_id = (crypto.randomUUID ? crypto.randomUUID()
+                  : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+                      const r = Math.random()*16|0;
+                      return (c === 'x' ? r : (r&0x3|0x8)).toString(16);
+                    }));
 
   try {
     const kirjed = read.map(r => ({
@@ -2126,12 +2152,15 @@ async function salvestaLoendus(mountId){
       muutus_tk: r.loetud - r.laos,
       loetud_tk: r.loetud,
       pohjus: 'Inventuur' + (markus ? ' — ' + markus : ''),
-      staatus: 'ootel',
+      staatus: (r.loetud === r.laos) ? 'kinnitatud' : 'ootel',
+      inventuur_id: inv_id,
       tegi_kasutaja_id: currentUser.id
     }));
     const ins = await sb.post('ladu_parandused', kirjed);
     (Array.isArray(ins) ? ins : [ins]).forEach(x => D.ladu_parandused.unshift(x));
-    toast(read.length + ' erinevust saadetud kinnitamiseks', 'green');
+    const vahesid = read.filter(r => r.loetud !== r.laos).length;
+    toast(read.length + ' rida salvestatud' +
+          (vahesid ? ' · ' + vahesid + ' erinevust ootab kinnitust' : ' · kõik klapib'), 'green');
     joonistaInventuur(mountId);
   } catch(e){ toast('Viga: ' + e.message, 'red'); }
 }
@@ -2207,6 +2236,136 @@ function uuendaInventuuriVaated(){
   if (document.getElementById('pkj-inventuur') &&
       document.getElementById('pkj-inventuur').style.display !== 'none') joonistaInventuur('inv-pakkija');
   if (document.getElementById('parandused-body')) renderParandused();
+}
+
+
+// ============================================================
+// INVENTUURI KOONDLEHT
+//
+// Yks leht yhe paeva kohta. Lehel on KOIK tooted ja suurused,
+// ka need mida ei loetud — nii on naha nii see, mis jai
+// tegemata, kui ka see, mis on pariselt otsas.
+//
+// Rida on toode x suurus, mitte toode x partii x suurus.
+// Partiide kaupa tuleks ligi tuhat rida ja lugemata ridu
+// oleks enamik — leht muutuks kasutuks. Partii numbrid
+// kaivad reale kaasa eraldi veerus.
+// ============================================================
+
+// Kokkuvote hoitakse siin, et ta jouaks ka valjatrykile.
+let invLehtKokku = '';
+
+function initInvLeht(){
+  const el = document.getElementById('il-kpv');
+  if (el && !el.value) el.value = today();
+  renderInvLeht();
+}
+
+function renderInvLeht(){
+  const el = document.getElementById('invleht-result');
+  if (!el) return;
+  const kpvEl = document.getElementById('il-kpv');
+  const kpv = (kpvEl && kpvEl.value) || today();
+
+  // Selle paeva loendusread. loetud_tk eristab inventuuri
+  // kasitsi tehtud parandusest — kasitsi parandusel ta puudub.
+  const read = D.ladu_parandused.filter(lp =>
+    lp.loetud_tk != null && String(lp.loodud || '').slice(0,10) === kpv);
+
+  // Kokku toode + suurus kaupa
+  const kaart = {};
+  const lugejad = {};
+  read.forEach(lp => {
+    const v = lp.toode_id + '|' + (lp.suurus || '');
+    if (!kaart[v]) kaart[v] = { loetud:0, vahe:0, partiid:[], ootel:false, tagasi:false };
+    const k = kaart[v];
+    k.loetud += (lp.loetud_tk || 0);
+    k.vahe   += (lp.muutus_tk || 0);
+    const pa = getPartii(lp.partii_id);
+    if (pa && k.partiid.indexOf(pa.partii_nr) < 0) k.partiid.push(pa.partii_nr);
+    if (lp.staatus === 'ootel') k.ootel = true;
+    if (lp.staatus === 'tagasi_lykatud') k.tagasi = true;
+    const kas = getKasutaja(lp.tegi_kasutaja_id);
+    if (kas && kas.nimi !== '—') lugejad[kas.nimi] = true;
+  });
+
+  let buf = '';
+  let nLoetud = 0, nLugemata = 0, nVahe = 0, nOotel = 0;
+
+  D.tooted
+    .filter(t => t.aktiivne !== false)
+    .slice()
+    .sort((a,b) => (a.nimi || '').localeCompare(b.nimi || '', 'et'))
+    .forEach(t => {
+      getSuurused(t.id).forEach(su => {
+        const v = t.id + '|' + su.suurus;
+        const k = kaart[v];
+        if (k){
+          nLoetud++;
+          const susteemis = k.loetud - k.vahe;
+          if (k.vahe !== 0) nVahe++;
+          if (k.ootel) nOotel++;
+          let sil;
+          if (k.ootel)        sil = '<span class="badge b-amber">ootel</span>';
+          else if (k.tagasi)  sil = '<span class="badge b-gray">tagasi lükatud</span>';
+          else if (k.vahe===0)sil = '<span class="badge b-green">klapib</span>';
+          else                sil = '<span class="badge b-blue">parandatud</span>';
+          const vahe = k.vahe === 0 ? '0'
+                     : '<strong>' + (k.vahe > 0 ? '+' : '') + k.vahe + '</strong>';
+          buf += '<tr><td>' + t.nimi + '</td>'
+               + '<td class="nw">' + su.suurus + '</td>'
+               + '<td class="nw" style="font-size:12px">' + (k.partiid.join(', ') || '—') + '</td>'
+               + '<td class="nw">' + susteemis + '</td>'
+               + '<td class="nw">' + k.loetud + '</td>'
+               + '<td class="nw">' + vahe + '</td>'
+               + '<td class="nw">' + sil + '</td></tr>';
+        } else {
+          nLugemata++;
+          const laos = getLaduKogus(t.id, su.suurus);
+          buf += '<tr style="color:var(--text3)"><td>' + t.nimi + '</td>'
+               + '<td class="nw">' + su.suurus + '</td>'
+               + '<td class="nw">—</td>'
+               + '<td class="nw">' + laos + '</td>'
+               + '<td class="nw">—</td>'
+               + '<td class="nw">—</td>'
+               + '<td class="nw"><span class="badge b-gray">ei loetud</span></td></tr>';
+        }
+      });
+    });
+
+  const kes = Object.keys(lugejad);
+  invLehtKokku = nLoetud + ' loetud · ' + nLugemata + ' lugemata · '
+               + nVahe + ' erinevust'
+               + (nOotel ? ' · ' + nOotel + ' ootab kinnitust' : '')
+               + (kes.length ? ' · luges: ' + kes.join(', ') : '');
+
+  el.innerHTML =
+    '<div class="card">' +
+      '<div class="card-title">Inventuur · ' + fmtDate(kpv) + '</div>' +
+      '<div class="flex-gap mb12" style="font-size:13px">' +
+        '<span><strong>' + nLoetud + '</strong> loetud</span>' +
+        '<span>·</span><span><strong>' + nLugemata + '</strong> lugemata</span>' +
+        '<span>·</span><span><strong>' + nVahe + '</strong> erinevust</span>' +
+        (nOotel ? '<span>·</span><span><strong>' + nOotel + '</strong> ootab kinnitust</span>' : '') +
+        (kes.length ? '<span>·</span><span>luges: ' + kes.join(', ') + '</span>' : '') +
+      '</div>' +
+      (nLoetud === 0
+        ? '<div class="alert alert-warn">Sel päeval ei ole ühtegi loendust tehtud.</div>'
+        : '') +
+      '<table class="tbl"><thead><tr>' +
+        '<th>Toode</th><th>Suurus</th><th>Partiid</th>' +
+        '<th>Süsteemis</th><th>Loetud</th><th>Vahe</th><th>Staatus</th>' +
+      '</tr></thead><tbody id="invleht-body">' + buf + '</tbody></table>' +
+    '</div>';
+}
+
+function prindiInvLeht(){
+  const kpvEl = document.getElementById('il-kpv');
+  const kpv = (kpvEl && kpvEl.value) || today();
+  if (!document.getElementById('invleht-body')) renderInvLeht();
+  prindiTabel('invleht-body',
+    'Inventuuri koondleht · ' + fmtDate(kpv)
+    + (invLehtKokku ? ' · ' + invLehtKokku : ''));
 }
 
 // ============================================================
@@ -2442,11 +2601,11 @@ function showView(name) {
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   document.getElementById('view-' + name)?.classList.add('active');
   document.querySelector(`[data-view="${name}"]`)?.classList.add('active');
-  const titles = { dashboard:'Dashboard', partiid:'Partiid', pakkimine:'Pakkimine', tooaeg:'Tööaeg', ladu:'Laosaldo', mahakandmised:'Mahakandmised', materjalid:'Pakendmaterjalid', tellimused:'Tellimused', kliendid:'Kliendid', raportid:'Mahe jälgitavus', seaded:'Seaded', tooted:'Tooted', sundmused:'Sündmused' };
+  const titles = { dashboard:'Dashboard', partiid:'Partiid', pakkimine:'Pakkimine', tooaeg:'Tööaeg', ladu:'Laosaldo', mahakandmised:'Mahakandmised', materjalid:'Pakendmaterjalid', tellimused:'Tellimused', kliendid:'Kliendid', raportid:'Mahe jälgitavus', invleht:'Inventuuri leht', seaded:'Seaded', tooted:'Tooted', sundmused:'Sündmused' };
   document.getElementById('topbar-title').textContent = titles[name] || name;
   closeSidebar();
   seaKoikTabelid();
-  const renders = { dashboard: renderDashboard, partiid: renderPartiid, pakkimine: renderPakkimine, tooaeg: renderTooaegView, ladu: renderLadu, mahakandmised: renderMahakandmised, materjalid: renderMaterjalid, tellimused: renderTellimused, kliendid: renderKliendid, raportid: renderRaportid, seaded: renderSeaded, tooted: renderTooted, sundmused: renderSundmused };
+  const renders = { dashboard: renderDashboard, partiid: renderPartiid, pakkimine: renderPakkimine, tooaeg: renderTooaegView, ladu: renderLadu, mahakandmised: renderMahakandmised, materjalid: renderMaterjalid, tellimused: renderTellimused, kliendid: renderKliendid, raportid: renderRaportid, invleht: initInvLeht, seaded: renderSeaded, tooted: renderTooted, sundmused: renderSundmused };
   renders[name]?.();
 }
 
@@ -2536,7 +2695,7 @@ function guardVaataja() {
 // Nii ei pea keegi numbrit meeles pidama ega kasitsi muutma.
 // Versiooninumber. Tosta seda iga sisulise muudatusega.
 // Mida tapselt muudeti, seda naitab GitHubi ajalugu.
-const VERSIOON = 'v3.1';
+const VERSIOON = 'v3.2';
 
 function naitaVersiooni(){
   const el = document.getElementById('sb-versioon');
