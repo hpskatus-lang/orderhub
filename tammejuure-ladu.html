@@ -878,6 +878,14 @@ a { color: inherit; text-decoration: none; }
                 <label class="form-label">Kaal (kg)</label>
                 <input type="number" id="tt-s-kaal" placeholder="2.0" step="0.01" min="0">
               </div>
+              <div style="width:80px;">
+                <label class="form-label">Ühik</label>
+                <select id="tt-s-yhik">
+                  <option value="tk">tk</option>
+                  <option value="kg">kg</option>
+                  <option value="l">l</option>
+                </select>
+              </div>
               <div style="display:flex;align-items:center;gap:4px;padding-bottom:12px;">
                 <input type="checkbox" id="tt-s-pohj">
                 <label class="form-label" style="margin:0;cursor:pointer;" for="tt-s-pohj">Põhisuurus</label>
@@ -1545,6 +1553,14 @@ a { color: inherit; text-decoration: none; }
         <label class="form-label">Kaal (kg)</label>
         <input type="number" id="te-s-kaal" step="0.01" min="0">
       </div>
+      <div style="width:80px;">
+        <label class="form-label">Ühik</label>
+        <select id="te-s-yhik">
+          <option value="tk">tk</option>
+          <option value="kg">kg</option>
+          <option value="l">l</option>
+        </select>
+      </div>
       <div style="display:flex;align-items:center;gap:4px;padding-bottom:12px;">
         <input type="checkbox" id="te-s-pohj">
         <label class="form-label" style="margin:0;cursor:pointer;" for="te-s-pohj">Põhisuurus</label>
@@ -2052,7 +2068,7 @@ function updateParPartiid(){
   }
   sel.innerHTML = partiid.map(p => {
     const laos = getLaduKogusPartiist(p.id, suurus);
-    return `<option value="${p.id}">${p.partii_nr} · laos ${laos} tk`
+    return `<option value="${p.id}">${p.partii_nr} · laos ${laos} ${getYhik(toode_id, suurus)}`
          + (p.staatus !== 'aktiivne' ? ' · suletud' : '') + `</option>`;
   }).join('');
 }
@@ -2124,7 +2140,7 @@ function invVaheta(mountId){
         }</td>
         <td class="nw">${su.suurus}</td>
         <td class="nw">${fmtDate(p.parim_enne)}</td>
-        <td class="nw"><strong>${laos}</strong> tk</td>
+        <td class="nw"><strong>${laos}</strong> ${su.yhik || 'tk'}</td>
         <td style="width:110px">
           <input type="number" min="0" style="width:100%" placeholder="loetud"
                  data-partii="${p.id}" data-suurus="${su.suurus}" data-laos="${laos}"
@@ -2229,7 +2245,7 @@ function joonistaOotelParandused(elId){
           <td>${t.nimi}</td>
           <td class="nw">${p ? p.partii_nr : '—'}</td>
           <td class="nw">${lp.suurus || '—'}</td>
-          <td class="nw">${lp.loetud_tk != null ? lp.loetud_tk + ' tk' : '—'}</td>
+          <td class="nw">${lp.loetud_tk != null ? lp.loetud_tk + ' ' + getYhik(lp.toode_id, lp.suurus) : '—'}</td>
           <td class="nw"><span class="badge ${lp.muutus_tk > 0 ? 'b-amber' : 'b-red'}">
             ${lp.muutus_tk > 0 ? '+' : ''}${lp.muutus_tk}</span></td>
           <td class="nw">${k.nimi}</td>
@@ -2371,7 +2387,8 @@ function renderInvLeht(){
           const vahe = k.vahe === 0 ? '0'
                      : '<strong>' + (k.vahe > 0 ? '+' : '') + k.vahe + '</strong>';
           buf += '<tr><td>' + t.nimi + '</td>'
-               + '<td class="nw">' + su.suurus + '</td>'
+               + '<td class="nw">' + su.suurus
+               + (su.yhik && su.yhik !== 'tk' ? ' (' + su.yhik + ')' : '') + '</td>'
                + '<td class="nw" style="font-size:12px">' + (k.partiid.join(', ') || '—') + '</td>'
                + '<td class="nw" style="font-size:12px">' + (k.kohad.join(' · ') || '—') + '</td>'
                + '<td class="nw">' + susteemis + '</td>'
@@ -2383,7 +2400,8 @@ function renderInvLeht(){
           const laos = getLaduKogus(t.id, su.suurus);
           const kohad = (kohadToote[t.id] || []).join(' · ');
           buf += '<tr style="color:var(--text3)"><td>' + t.nimi + '</td>'
-               + '<td class="nw">' + su.suurus + '</td>'
+               + '<td class="nw">' + su.suurus
+               + (su.yhik && su.yhik !== 'tk' ? ' (' + su.yhik + ')' : '') + '</td>'
                + '<td class="nw">—</td>'
                + '<td class="nw" style="font-size:12px">' + (kohad || '—') + '</td>'
                + '<td class="nw">' + laos + '</td>'
@@ -2491,6 +2509,15 @@ function getPartii(id) { return D.partiid.find(p => p.id === id) || null; }
 
 function getSuurused(toode_id) {
   return D.toote_suurused.filter(s => s.toode_id === toode_id && s.aktiivne !== false);
+}
+
+// Suuruse mootyhik. Pakendatud kaup loetakse tykkides, lahtine
+// kaalus voi liitrites. Yhik on SUURUSE kyljes, mitte toote —
+// Kanepioli 500ml on tykk, Kanepioli lahtine on liiter, ja
+// need on sama toode.
+function getYhik(toode_id, suurus) {
+  const s = D.toote_suurused.find(x => x.toode_id === toode_id && x.suurus === suurus);
+  return (s && s.yhik) || 'tk';
 }
 
 function getLaduKogus(toode_id, suurus) {
@@ -2756,7 +2783,7 @@ function guardVaataja() {
 // Nii ei pea keegi numbrit meeles pidama ega kasitsi muutma.
 // Versiooninumber. Tosta seda iga sisulise muudatusega.
 // Mida tapselt muudeti, seda naitab GitHubi ajalugu.
-const VERSIOON = 'v3.5';
+const VERSIOON = 'v3.6';
 
 function naitaVersiooni(){
   const el = document.getElementById('sb-versioon');
@@ -3368,7 +3395,7 @@ function renderLadu() {
       laduBuf += `<tr>
         <td>${t.nimi}</td>
         <td><strong>${s.suurus}</strong></td>
-        <td>${laos}</td>
+        <td>${laos} ${s.yhik || 'tk'}</td>
         <td>${piir}</td>
         <td><span class="badge ${cls}">${laos < piir ? 'Madal' : laos < piir*1.5 ? 'OK' : 'Hea'}</span></td>
       </tr>`;
@@ -3465,7 +3492,7 @@ function renderMahakandmised() {
       <td>${t.nimi}</td>
       <td>${p ? p.partii_nr : '—'}</td>
       <td>${m.suurus || '—'}</td>
-      <td>${m.kogus_tk} tk</td>
+      <td>${m.kogus_tk} ${getYhik(m.toode_id, m.suurus)}</td>
       <td>${m.pohjus}</td>
       <td>${k.nimi}</td>
     </tr>`;
@@ -3712,7 +3739,7 @@ function addTellimusRida() {
     <td>${suurus}</td>
     <td><input type="number" min="1" value="1" style="width:70px;" id="tiq-${id}" oninput="updateTellimusRida(${id})"></td>
     <td>${partiiInfo} ${hoiatus}</td>
-    <td><span class="${laos > 0 ? 'b-green' : 'b-red'} badge">${laos} tk</span></td>
+    <td><span class="${laos > 0 ? 'b-green' : 'b-red'} badge">${laos} ${getYhik(t.id, suurus)}</span></td>
     <td><button class="btn btn-sm" onclick="removeTellimusRida(${id})">×</button></td>`;
   tbody.appendChild(tr);
 }
@@ -4612,7 +4639,7 @@ function initUusToode() {
 function renderTtSuurused() {
   document.getElementById('tt-suurused-list').innerHTML = ttSuurused.map((s, i) =>
     `<div class="flex-gap mb4">
-      <span class="badge ${s.on_pohisuurus ? 'b-green' : 'b-gray'}">${s.suurus} (${s.kaal_kg}kg)${s.on_pohisuurus ? ' ★' : ''}</span>
+      <span class="badge ${s.on_pohisuurus ? 'b-green' : 'b-gray'}">${s.suurus} (${s.kaal_kg}kg · ${s.yhik || 'tk'})${s.on_pohisuurus ? ' ★' : ''}</span>
       <button class="btn btn-sm" style="padding:1px 6px;" onclick="ttSuurused.splice(${i},1);renderTtSuurused()">×</button>
     </div>`
   ).join('');
@@ -4624,7 +4651,8 @@ function addTtSuurus() {
   const pohj = document.getElementById('tt-s-pohj').checked;
   if (!suurus || !kaal) { toast('Sisesta suurus ja kaal!', 'warn'); return; }
   if (ttSuurused.find(s => s.suurus === suurus)) { toast('See suurus on juba olemas!', 'warn'); return; }
-  ttSuurused.push({ suurus, kaal_kg: kaal, on_pohisuurus: pohj, aktiivne: true });
+  ttSuurused.push({ suurus, kaal_kg: kaal, on_pohisuurus: pohj, aktiivne: true,
+                    yhik: document.getElementById('tt-s-yhik').value });
   renderTtSuurused();
   document.getElementById('tt-s-suurus').value = '';
   document.getElementById('tt-s-kaal').value = '';
@@ -4647,7 +4675,7 @@ async function saveToode() {
     D.tooted.push(toode);
     // Lisa suurused
     for (const s of ttSuurused) {
-      const si = await sb.post('toote_suurused', { toode_id: toode.id, suurus: s.suurus, kaal_kg: s.kaal_kg, on_pohisuurus: s.on_pohisuurus, aktiivne: true });
+      const si = await sb.post('toote_suurused', { toode_id: toode.id, suurus: s.suurus, kaal_kg: s.kaal_kg, on_pohisuurus: s.on_pohisuurus, aktiivne: true, yhik: s.yhik || 'tk' });
       D.toote_suurused.push(si[0]);
     }
     toast(nimi + ' lisatud!', 'green');
@@ -4671,7 +4699,7 @@ function openToodeEdit(id) {
 function renderTeSuurused() {
   document.getElementById('te-suurused-list').innerHTML = teSuurused.map((s, i) =>
     `<div class="flex-gap mb4">
-      <span class="badge ${s.on_pohisuurus ? 'b-green' : 'b-gray'}">${s.suurus} (${s.kaal_kg}kg)${s.on_pohisuurus ? ' ★' : ''}</span>
+      <span class="badge ${s.on_pohisuurus ? 'b-green' : 'b-gray'}">${s.suurus} (${s.kaal_kg}kg · ${s.yhik || 'tk'})${s.on_pohisuurus ? ' ★' : ''}</span>
       <button class="btn btn-sm" style="padding:1px 6px;" onclick="teSuurused.splice(${i},1);renderTeSuurused()">×</button>
     </div>`
   ).join('');
@@ -4682,7 +4710,8 @@ function addTeSuurus() {
   const kaal = parseFloat(document.getElementById('te-s-kaal').value) || 0;
   const pohj = document.getElementById('te-s-pohj').checked;
   if (!suurus || !kaal) { toast('Sisesta suurus ja kaal!', 'warn'); return; }
-  teSuurused.push({ suurus, kaal_kg: kaal, on_pohisuurus: pohj, aktiivne: true });
+  teSuurused.push({ suurus, kaal_kg: kaal, on_pohisuurus: pohj, aktiivne: true,
+                    yhik: document.getElementById('te-s-yhik').value });
   renderTeSuurused();
   document.getElementById('te-s-suurus').value = '';
   document.getElementById('te-s-kaal').value = '';
@@ -4709,7 +4738,7 @@ async function saveToodeEdit() {
     }
     D.toote_suurused = D.toote_suurused.filter(s => s.toode_id !== id);
     for (const s of teSuurused) {
-      const ins = await sb.post('toote_suurused', { toode_id: id, suurus: s.suurus, kaal_kg: s.kaal_kg, on_pohisuurus: s.on_pohisuurus, aktiivne: true });
+      const ins = await sb.post('toote_suurused', { toode_id: id, suurus: s.suurus, kaal_kg: s.kaal_kg, on_pohisuurus: s.on_pohisuurus, aktiivne: true, yhik: s.yhik || 'tk' });
       D.toote_suurused.push(ins[0]);
     }
     closeModal('toode-edit-modal');
