@@ -246,10 +246,31 @@ a { color: inherit; text-decoration: none; }
 .nw { white-space: nowrap; }
 
 @media print {
-  #print-ala.print-area { display:block; }
-  body * { visibility: hidden; }
-  .print-area, .print-area * { visibility: visible; }
-  .print-area { position: fixed; inset: 0; padding: 24px; }
+  @page { margin: 14mm; }
+
+  /* Valge taust — prindialal pole vaja ekraani tooni */
+  body.prindib { background: #fff !important; }
+
+  body.prindib > * { display: none !important; }
+  body.prindib > #print-ala.print-area {
+    display: block !important;
+    position: static;
+    padding: 0;
+  }
+
+  /* Veerupais kordub igal lehel */
+  .print-area thead { display: table-header-group; }
+  .print-area tfoot { display: table-footer-group; }
+
+  /* Rida ei murdu kahe lehe vahel pooleks */
+  .print-area tr { break-inside: avoid; page-break-inside: avoid; }
+  .print-area .pdf-header { break-after: avoid; page-break-after: avoid; }
+
+  /* Tihedam ladu — 330 rida ei pea olema 15 lehel */
+  .print-area table { width: 100%; border-collapse: collapse; }
+  .print-area .tbl th,
+  .print-area .tbl td { padding: 2.5px 6px; font-size: 10px; line-height: 1.25; }
+  .print-area .pdf-title { font-size: 15px; }
 }
 
 /* ── UTILS ── */
@@ -1835,7 +1856,7 @@ function seaKoikTabelid(){
 // Trykib selle, mis ekraanil on — koos filtri ja sortimisega.
 // Brauseri prindiaknas saab valida "Salvesta PDF-ina".
 // ============================================================
-function prindiTabel(tbodyId, pealkiri){
+function prindiTabel(tbodyId, pealkiri, alarida){
   const tbody = document.getElementById(tbodyId);
   if (!tbody) return;
   const tabel = tbody.closest('table');
@@ -1854,7 +1875,8 @@ function prindiTabel(tbodyId, pealkiri){
     '<div class="pdf-area" style="border:none;padding:0">' +
       '<div class="pdf-header">' +
         '<div><div class="pdf-title">' + pealkiri + '</div>' +
-        '<div class="text-muted mt8">Seisuga ' + aeg + '</div></div>' +
+        (alarida ? '<div class="text-small" style="margin-top:4px">' + alarida + '</div>' : '') +
+        '<div class="text-muted mt8">Välja trükitud ' + aeg + '</div></div>' +
         '<div class="pdf-company"><strong>' + tarnijaNimi() + '</strong>' +
           (maheKood() ? '<br><span class="pdf-mahe">MAHE · ' + maheKood() + '</span>' : '') +
         '</div>' +
@@ -1871,8 +1893,13 @@ function prindiTabel(tbodyId, pealkiri){
       '</div>' +
     '</div>';
   ala.classList.add('print-area');
+  document.body.classList.add('prindib');
   window.print();
-  setTimeout(() => { ala.classList.remove('print-area'); ala.innerHTML = ''; }, 800);
+  setTimeout(() => {
+    ala.classList.remove('print-area');
+    document.body.classList.remove('prindib');
+    ala.innerHTML = '';
+  }, 800);
 }
 
 // ============================================================
@@ -2364,8 +2391,8 @@ function prindiInvLeht(){
   const kpv = (kpvEl && kpvEl.value) || today();
   if (!document.getElementById('invleht-body')) renderInvLeht();
   prindiTabel('invleht-body',
-    'Inventuuri koondleht · ' + fmtDate(kpv)
-    + (invLehtKokku ? ' · ' + invLehtKokku : ''));
+    'Inventuuri koondleht · ' + fmtDate(kpv),
+    invLehtKokku);
 }
 
 // ============================================================
@@ -2695,7 +2722,7 @@ function guardVaataja() {
 // Nii ei pea keegi numbrit meeles pidama ega kasitsi muutma.
 // Versiooninumber. Tosta seda iga sisulise muudatusega.
 // Mida tapselt muudeti, seda naitab GitHubi ajalugu.
-const VERSIOON = 'v3.2';
+const VERSIOON = 'v3.3';
 
 function naitaVersiooni(){
   const el = document.getElementById('sb-versioon');
