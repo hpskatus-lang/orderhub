@@ -447,7 +447,7 @@ a { color: inherit; text-decoration: none; }
               <button class="btn btn-sm eiprindi" onclick="prindiTabel('partiid-body','Partiid')">Prindi</button>
             </div>
             <table class="tbl">
-              <thead><tr><th>Toode</th><th>Partii nr</th><th>Tootmiskuupäev</th><th>Parim enne</th><th>Lig. kg</th><th>Pakitud</th><th>FIFO</th><th>Olek</th><th></th></tr></thead>
+              <thead><tr><th>Toode</th><th>Partii nr</th><th>Asukoht</th><th>Tootmiskuupäev</th><th>Parim enne</th><th>Lig. kg</th><th>Pakitud</th><th>FIFO</th><th>Olek</th><th></th></tr></thead>
               <tbody id="partiid-body"></tbody>
             </table>
           </div>
@@ -482,9 +482,14 @@ a { color: inherit; text-decoration: none; }
                 <div class="form-hint">Silma järgi — täpne kogus selgub pakkimisel</div>
               </div>
               <div class="form-row">
-                <label class="form-label">Märkus</label>
-                <input type="text" id="p-markus" placeholder="nt tooraine päritolu">
+                <label class="form-label">Asukoht laos</label>
+                <input type="text" id="p-asukoht" list="asukohad" placeholder="nt Riiul 3, alumine">
+                <div class="form-hint">Kus see partii füüsiliselt seisab — inventuuril leiab kiiremini</div>
               </div>
+            </div>
+            <div class="form-row">
+              <label class="form-label">Märkus</label>
+              <input type="text" id="p-markus" placeholder="nt tooraine päritolu">
             </div>
             <div class="flex-gap mt12">
               <button class="btn btn-primary" onclick="savePartii()">Lisa partii</button>
@@ -1354,6 +1359,8 @@ a { color: inherit; text-decoration: none; }
   </div>
 </div>
 
+<datalist id="asukohad"></datalist>
+
 <!-- PARTII MUUDA MODAL -->
 <div id="partii-edit-modal" class="modal-overlay">
   <div class="modal-box">
@@ -1378,6 +1385,10 @@ a { color: inherit; text-decoration: none; }
         <label class="form-label">Ligikaudne kogus (kg)</label>
         <input type="number" id="pe-kg" min="0">
       </div>
+    </div>
+    <div class="form-row">
+      <label class="form-label">Asukoht laos</label>
+      <input type="text" id="pe-asukoht" list="asukohad" placeholder="nt Riiul 3, alumine">
     </div>
     <div class="form-row">
       <label class="form-label">Märkus</label>
@@ -2104,7 +2115,9 @@ function invVaheta(mountId){
       const laos = getLaduKogusPartiist(p.id, su.suurus);
       const id = mountId + '-' + p.id + '-' + su.suurus.replace(/[^A-Za-z0-9]/g,'');
       ridu += `<tr>
-        <td class="nw"><strong>${p.partii_nr}</strong></td>
+        <td class="nw"><strong>${p.partii_nr}</strong>${
+          p.asukoht ? '<div class="text-small" style="color:var(--text3)">' + p.asukoht + '</div>' : ''
+        }</td>
         <td class="nw">${su.suurus}</td>
         <td class="nw">${fmtDate(p.parim_enne)}</td>
         <td class="nw"><strong>${laos}</strong> tk</td>
@@ -2304,16 +2317,30 @@ function renderInvLeht(){
   const lugejad = {};
   read.forEach(lp => {
     const v = lp.toode_id + '|' + (lp.suurus || '');
-    if (!kaart[v]) kaart[v] = { loetud:0, vahe:0, partiid:[], ootel:false, tagasi:false };
+    if (!kaart[v]) kaart[v] = { loetud:0, vahe:0, partiid:[], kohad:[], ootel:false, tagasi:false };
     const k = kaart[v];
     k.loetud += (lp.loetud_tk || 0);
     k.vahe   += (lp.muutus_tk || 0);
     const pa = getPartii(lp.partii_id);
     if (pa && k.partiid.indexOf(pa.partii_nr) < 0) k.partiid.push(pa.partii_nr);
+    if (pa && (pa.asukoht || '').trim() && k.kohad.indexOf(pa.asukoht.trim()) < 0) {
+      k.kohad.push(pa.asukoht.trim());
+    }
     if (lp.staatus === 'ootel') k.ootel = true;
     if (lp.staatus === 'tagasi_lykatud') k.tagasi = true;
     const kas = getKasutaja(lp.tegi_kasutaja_id);
     if (kas && kas.nimi !== '—') lugejad[kas.nimi] = true;
+  });
+
+  // Toote kaupa asukohad ette valmis, et ridade joonistamisel
+  // ei peaks iga rea jaoks koiki partiisid uuesti labi kaima.
+  const kohadToote = {};
+  D.partiid.forEach(pa => {
+    if (pa.staatus !== 'aktiivne') return;
+    const koht = (pa.asukoht || '').trim();
+    if (!koht) return;
+    if (!kohadToote[pa.toode_id]) kohadToote[pa.toode_id] = [];
+    if (kohadToote[pa.toode_id].indexOf(koht) < 0) kohadToote[pa.toode_id].push(koht);
   });
 
   let buf = '';
@@ -2342,6 +2369,7 @@ function renderInvLeht(){
           buf += '<tr><td>' + t.nimi + '</td>'
                + '<td class="nw">' + su.suurus + '</td>'
                + '<td class="nw" style="font-size:12px">' + (k.partiid.join(', ') || '—') + '</td>'
+               + '<td class="nw" style="font-size:12px">' + (k.kohad.join(' · ') || '—') + '</td>'
                + '<td class="nw">' + susteemis + '</td>'
                + '<td class="nw">' + k.loetud + '</td>'
                + '<td class="nw">' + vahe + '</td>'
@@ -2349,9 +2377,11 @@ function renderInvLeht(){
         } else {
           nLugemata++;
           const laos = getLaduKogus(t.id, su.suurus);
+          const kohad = (kohadToote[t.id] || []).join(' · ');
           buf += '<tr style="color:var(--text3)"><td>' + t.nimi + '</td>'
                + '<td class="nw">' + su.suurus + '</td>'
                + '<td class="nw">—</td>'
+               + '<td class="nw" style="font-size:12px">' + (kohad || '—') + '</td>'
                + '<td class="nw">' + laos + '</td>'
                + '<td class="nw">—</td>'
                + '<td class="nw">—</td>'
@@ -2380,7 +2410,7 @@ function renderInvLeht(){
         ? '<div class="alert alert-warn">Sel päeval ei ole ühtegi loendust tehtud.</div>'
         : '') +
       '<table class="tbl"><thead><tr>' +
-        '<th>Toode</th><th>Suurus</th><th>Partiid</th>' +
+        '<th>Toode</th><th>Suurus</th><th>Partiid</th><th>Asukoht</th>' +
         '<th>Süsteemis</th><th>Loetud</th><th>Vahe</th><th>Staatus</th>' +
       '</tr></thead><tbody id="invleht-body">' + buf + '</tbody></table>' +
     '</div>';
@@ -2722,7 +2752,7 @@ function guardVaataja() {
 // Nii ei pea keegi numbrit meeles pidama ega kasitsi muutma.
 // Versiooninumber. Tosta seda iga sisulise muudatusega.
 // Mida tapselt muudeti, seda naitab GitHubi ajalugu.
-const VERSIOON = 'v3.3';
+const VERSIOON = 'v3.4';
 
 function naitaVersiooni(){
   const el = document.getElementById('sb-versioon');
@@ -2925,7 +2955,7 @@ function renderPartiid() {
   const tbody = document.getElementById('partiid-body');
   tbody.innerHTML = '';
   if (partiid.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="9" class="tbl-empty">Partiisid ei leitud</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="10" class="tbl-empty">Partiisid ei leitud</td></tr>';
     return;
   }
 
@@ -2949,6 +2979,7 @@ function renderPartiid() {
     partiiBuf += `<tr>
       <td><strong>${t.nimi}</strong></td>
       <td class="nw"><strong>${p.partii_nr}</strong></td>
+      <td class="nw">${p.asukoht || '—'}</td>
       <td>${fmtDate(p.tootmiskuupaev)}</td>
       <td>${fmtDate(p.parim_enne)} ${parimBadge}</td>
       <td class="nw">${p.ligikaudne_kg ? '~' + p.ligikaudne_kg + ' kg' : '—'}</td>
@@ -2978,7 +3009,19 @@ function initUusPartii() {
   document.getElementById('p-nr').value = '';
   document.getElementById('p-kg').value = '';
   document.getElementById('p-markus').value = '';
+  document.getElementById('p-asukoht').value = '';
+  taidaAsukohad();
   updateParimEnne();
+}
+
+// Kogub kokku koik seni kasutatud asukohad ja pakub neid
+// kirjutamise ajal, et kirjapilt yhtlane pysiks.
+function taidaAsukohad(){
+  const el = document.getElementById('asukohad');
+  if (!el) return;
+  const kohad = [...new Set(D.partiid.map(p => (p.asukoht || '').trim()).filter(Boolean))]
+    .sort((a,b) => a.localeCompare(b, 'et'));
+  el.innerHTML = kohad.map(k => `<option value="${k}">`).join('');
 }
 
 function updateParimEnne() {
@@ -3020,6 +3063,7 @@ async function savePartii() {
       partii_nr: nr, tootmiskuupaev: kpv,
       parim_enne: parimEnne || null,
       ligikaudne_kg: kg, markus,
+      asukoht: (document.getElementById('p-asukoht').value.trim() || null),
       staatus: 'aktiivne',
       lisas_kasutaja_id: currentUser.id
     });
@@ -5376,7 +5420,9 @@ function openPartiiEdit(id) {
   document.getElementById('pe-parim-enne').value = p.parim_enne || '';
   document.getElementById('pe-kg').value = p.ligikaudne_kg || '';
   document.getElementById('pe-markus').value = p.markus || '';
+  document.getElementById('pe-asukoht').value = p.asukoht || '';
   document.getElementById('pe-staatus').value = p.staatus || 'aktiivne';
+  taidaAsukohad();
   openModal('partii-edit-modal');
 }
 
@@ -5403,6 +5449,7 @@ async function savePartiiEdit() {
     parim_enne: document.getElementById('pe-parim-enne').value || null,
     ligikaudne_kg: parseFloat(document.getElementById('pe-kg').value) || null,
     markus: document.getElementById('pe-markus').value || null,
+    asukoht: document.getElementById('pe-asukoht').value.trim() || null,
     staatus: document.getElementById('pe-staatus').value
   };
 
