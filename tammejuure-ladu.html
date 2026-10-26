@@ -1626,28 +1626,88 @@ function hdr() {
   };
 }
 
+// Mitu paringut korraga ei tohi kaivitada mitut uuendust —
+// teine uuendus muudaks esimese margi kehtetuks.
+let margiUuendusKaib = null;
+
+async function margiUuendus() {
+  if (margiUuendusKaib) return margiUuendusKaib;
+  margiUuendusKaib = (async () => {
+    const saved = localStorage.getItem('tj_sess');
+    if (!saved) throw new Error('Sessioon puudub');
+    const { refresh_token } = JSON.parse(saved);
+    const sess = await uuendaToken(refresh_token);
+    SB_TOKEN = sess.access_token;
+    localStorage.setItem('tj_sess', JSON.stringify({
+      access_token:  sess.access_token,
+      refresh_token: sess.refresh_token
+    }));
+    return sess;
+  })();
+  try { return await margiUuendusKaib; }
+  finally { margiUuendusKaib = null; }
+}
+
+function margiViga(staatus, tekst) {
+  return staatus === 401 || /JWT expired|PGRST303|JWSError/i.test(tekst || '');
+}
+
+// Koik paringud kaivad siit labi.
+async function sbFetch(url, opts) {
+  const tee = () => fetch(url, Object.assign({}, opts, {
+    headers: hdr(), signal: AbortSignal.timeout(20000)
+  }));
+
+  let r = await tee();
+  if (r.ok) return r;
+
+  const tekst = await r.text();
+  if (!margiViga(r.status, tekst)) throw new Error(tekst);
+
+  // Mark aegus. Uuendame ja proovime TAPSELT SAMA paringut uuesti,
+  // et kasutaja too ei laheks kaotsi.
+  try {
+    await margiUuendus();
+  } catch (e) {
+    throw new Error('Sisselogimine on aegunud. Logi palun uuesti sisse — '
+                  + 'sisestatud read jäävad ekraanile alles.');
+  }
+
+  r = await tee();
+  if (!r.ok) throw new Error(await r.text());
+  return r;
+}
+
 const sb = {
   async get(table, params = '') {
-    const r = await fetch(`${SB_URL}/rest/v1/${table}${params ? '?' + params : ''}`, { headers: hdr(), signal: AbortSignal.timeout(20000) });
-    if (!r.ok) throw new Error(await r.text());
+    const r = await sbFetch(`${SB_URL}/rest/v1/${table}${params ? '?' + params : ''}`, {});
     return r.json();
   },
   async post(table, data) {
-    const r = await fetch(`${SB_URL}/rest/v1/${table}`, { method: 'POST', headers: hdr(), body: JSON.stringify(data), signal: AbortSignal.timeout(20000) });
-    if (!r.ok) throw new Error(await r.text());
+    const r = await sbFetch(`${SB_URL}/rest/v1/${table}`,
+      { method: 'POST', body: JSON.stringify(data) });
     return r.json();
   },
   async patch(table, filter, data) {
-    const r = await fetch(`${SB_URL}/rest/v1/${table}?${filter}`, { method: 'PATCH', headers: hdr(), body: JSON.stringify(data), signal: AbortSignal.timeout(20000) });
-    if (!r.ok) throw new Error(await r.text());
+    const r = await sbFetch(`${SB_URL}/rest/v1/${table}?${filter}`,
+      { method: 'PATCH', body: JSON.stringify(data) });
     return r.json();
   },
   async del(table, filter) {
-    const r = await fetch(`${SB_URL}/rest/v1/${table}?${filter}`, { method: 'DELETE', headers: hdr(), signal: AbortSignal.timeout(20000) });
-    if (!r.ok) throw new Error(await r.text());
+    await sbFetch(`${SB_URL}/rest/v1/${table}?${filter}`, { method: 'DELETE' });
     return true;
   }
 };
+
+// Taustal: uuenda mark enne, kui ta aegub.
+setInterval(() => {
+  if (SB_TOKEN) margiUuendus().catch(() => {});
+}, 45 * 60 * 1000);
+
+// Ja siis, kui vahekaart uuesti nahtavaks muutub.
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && SB_TOKEN) margiUuendus().catch(() => {});
+});
 
 // ============================================================
 // ANDMED (mälu cache)
@@ -2733,7 +2793,7 @@ async function doLogin() {
       body: JSON.stringify({ email, password: pass }),
       signal: AbortSignal.timeout(20000)
     });
-    if (!r.ok) { err.textContent = 'Vale e-post voi parool.'; err.style.display = 'block'; return; }
+    if (!r.ok) { err.textContent = 'Vale e-post või parool.'; err.style.display = 'block'; return; }
     const sess = await r.json();
     err.style.display = 'none';
     await alustaSessioon(sess);
@@ -2751,7 +2811,7 @@ async function alustaSessioon(sess) {
   }));
   const prof = await sb.get('profiilid', `id=eq.${sess.user.id}`);
   if (!prof.length) {
-    toast('Kasutajal pole profiili. Vota yhendust adminiga.', 'red');
+    toast('Kasutajal pole profiili. Võta ühendust adminiga.', 'red');
     SB_TOKEN = null; localStorage.removeItem('tj_sess');
     return;
   }
@@ -2783,7 +2843,7 @@ function guardVaataja() {
 // Nii ei pea keegi numbrit meeles pidama ega kasitsi muutma.
 // Versiooninumber. Tosta seda iga sisulise muudatusega.
 // Mida tapselt muudeti, seda naitab GitHubi ajalugu.
-const VERSIOON = 'v3.7';
+const VERSIOON = 'v3.8';
 
 function naitaVersiooni(){
   const el = document.getElementById('sb-versioon');
