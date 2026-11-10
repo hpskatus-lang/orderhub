@@ -362,7 +362,7 @@ a { color: inherit; text-decoration: none; }
     </div>
     <div class="sb-section">
       <div class="sb-section-label">Ladu</div>
-      <div class="nav-item" onclick="showView('ladu')" data-view="ladu"><span class="nav-icon">🏪</span>Laosaldo</div>
+      <div class="nav-item" onclick="showView('ladu')" data-view="ladu"><span class="nav-icon">🏪</span>Laoseis</div>
       <div class="nav-item" onclick="showView('mahakandmised')" data-view="mahakandmised"><span class="nav-icon">⚠️</span>Mahakandmised</div>
       <div class="nav-item" onclick="showView('materjalid')" data-view="materjalid"><span class="nav-icon">🧴</span>Materjalid</div>
     </div>
@@ -572,7 +572,7 @@ a { color: inherit; text-decoration: none; }
       <!-- LADU -->
       <div id="view-ladu" class="view">
         <div class="tabs">
-          <div class="tab active" onclick="showSub('ladu','saldo')">Laosaldo</div>
+          <div class="tab active" onclick="showSub('ladu','saldo')">Laoseis</div>
           <div class="tab" onclick="showSub('ladu','inventuur')">Inventuur</div>
           <div class="tab" onclick="showSub('ladu','parandused')">Admin parandused</div>
         </div>
@@ -1029,7 +1029,7 @@ a { color: inherit; text-decoration: none; }
         </div>
         <div id="seaded-piirid" class="sub-view">
           <div class="card">
-            <div class="card-title">Laosaldo piirmäärad (hoiatus kui alla)</div>
+            <div class="card-title">Laoseisu piirmäärad (hoiatus kui alla)</div>
             <div id="piirid-list"></div>
             <button class="btn btn-primary mt16" onclick="savePiirid()">Salvesta piirmäärad</button>
           </div>
@@ -1070,7 +1070,7 @@ a { color: inherit; text-decoration: none; }
   <div class="pkj-tabs">
     <div class="pkj-tab active" id="pkjtab-pakkimine" onclick="showPkjTab('pakkimine')">Pakkimine</div>
     <div class="pkj-tab" id="pkjtab-mahakandmine" onclick="showPkjTab('mahakandmine')">Mahakandmine</div>
-    <div class="pkj-tab" id="pkjtab-ladu" onclick="showPkjTab('ladu')">Laosaldo</div>
+    <div class="pkj-tab" id="pkjtab-ladu" onclick="showPkjTab('ladu')">Laoseis</div>
     <div class="pkj-tab" id="pkjtab-inventuur" onclick="showPkjTab('inventuur')">Inventuur</div>
     <div class="pkj-tab" id="pkjtab-tellimused" onclick="showPkjTab('tellimused')">Tellimused</div>
   </div>
@@ -1169,7 +1169,7 @@ a { color: inherit; text-decoration: none; }
     <!-- PAKKIJA: LADU -->
     <div id="pkj-ladu" style="display:none;">
       <div class="card">
-        <div class="card-title">Laosaldo</div>
+        <div class="card-title">Laoseis</div>
         <div id="pkj-ladu-bars"></div>
       </div>
       <div class="card">
@@ -2701,7 +2701,7 @@ function getLaduKogusPartiist(partii_id, suurus) {
     })
     .reduce((s, tp) => s + (tp.kogus_tk || 0), 0);
   // Kinnitatud parandused selle partii kohta. Ilma nendeta laheb
-  // partii arvestus Laosaldo koguarvust lahku.
+  // partii arvestus Laoseisu koguarvust lahku.
   const parandused = D.ladu_parandused
     .filter(lp => lp.partii_id === partii_id
                 && (!suurus || lp.suurus === suurus)
@@ -2749,7 +2749,7 @@ function showView(name) {
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   document.getElementById('view-' + name)?.classList.add('active');
   document.querySelector(`[data-view="${name}"]`)?.classList.add('active');
-  const titles = { dashboard:'Dashboard', partiid:'Partiid', pakkimine:'Pakkimine', tooaeg:'Tööaeg', ladu:'Laosaldo', mahakandmised:'Mahakandmised', materjalid:'Pakendmaterjalid', tellimused:'Tellimused', kliendid:'Kliendid', raportid:'Mahe jälgitavus', invleht:'Inventuuri leht', seaded:'Seaded', tooted:'Tooted', sundmused:'Sündmused' };
+  const titles = { dashboard:'Dashboard', partiid:'Partiid', pakkimine:'Pakkimine', tooaeg:'Tööaeg', ladu:'Laoseis', mahakandmised:'Mahakandmised', materjalid:'Pakendmaterjalid', tellimused:'Tellimused', kliendid:'Kliendid', raportid:'Mahe jälgitavus', invleht:'Inventuuri leht', seaded:'Seaded', tooted:'Tooted', sundmused:'Sündmused' };
   document.getElementById('topbar-title').textContent = titles[name] || name;
   closeSidebar();
   seaKoikTabelid();
@@ -2843,7 +2843,7 @@ function guardVaataja() {
 // Nii ei pea keegi numbrit meeles pidama ega kasitsi muutma.
 // Versiooninumber. Tosta seda iga sisulise muudatusega.
 // Mida tapselt muudeti, seda naitab GitHubi ajalugu.
-const VERSIOON = 'v3.8';
+const VERSIOON = 'v3.9';
 
 function naitaVersiooni(){
   const el = document.getElementById('sb-versioon');
@@ -2948,7 +2948,7 @@ function renderDashboard() {
       <div class="metric-sub">${D.tellimused.length} tellimust kokku</div>
     </div>
     <div class="metric ${madalad.length > 0 ? 'metric-red' : 'metric-green'}">
-      <div class="metric-label">Madal laosaldo</div>
+      <div class="metric-label">Madal laoseis</div>
       <div class="metric-value">${madalad.length}</div>
       <div class="metric-sub">toodet alla piirmäära</div>
     </div>
@@ -2965,7 +2965,7 @@ function renderDashboard() {
 
   // Madal saldo
   const madalEl = document.getElementById('dash-madal-saldo');
-  madalEl.innerHTML = '<div class="card-title">Madal laosaldo</div>';
+  madalEl.innerHTML = '<div class="card-title">Madal laoseis</div>';
   if (madalad.length === 0) {
     madalEl.innerHTML += '<div class="alert alert-green">Kõik saldod korras ✓</div>';
   } else {
@@ -4851,7 +4851,7 @@ async function kustutaToode(id) {
   kysiKustutust({
     mida: '<strong>' + t.nimi + '</strong><br>' + (t.kategooria || ''),
     sona: 'KUSTUTA',
-    moju: [suurusi + ' suurust', 'laosaldo read', 'piirmäärad'],
+    moju: [suurusi + ' suurust', 'laoseisu read', 'piirmäärad'],
     tegevus: async () => {
       await sb.del('tooted', `id=eq.${id}`);
       D.tooted = D.tooted.filter(x => x.id !== id);
@@ -5246,7 +5246,7 @@ function exportLaduCSV() {
   D.tooted.forEach(t => getSuurused(t.id).forEach(s => {
     rows.push([t.nimi, s.suurus, getLaduKogus(t.id, s.suurus), getPiirmaar(t.id)]);
   }));
-  downloadCSV(rows, `laosaldo_${today()}.csv`);
+  downloadCSV(rows, `laoseis_${today()}.csv`);
 }
 
 function exportPartiidCSV() {
@@ -5279,7 +5279,7 @@ renderRaportid = function() {
       <div class="card eksport-card mt8">
         <div class="card-title">Eksport CSV</div>
         <div class="flex-gap">
-          <button class="btn" onclick="exportLaduCSV()">⬇ Laosaldo</button>
+          <button class="btn" onclick="exportLaduCSV()">⬇ Laoseis</button>
           <button class="btn" onclick="exportPartiidCSV()">⬇ Partiid</button>
         </div>
       </div>`);
